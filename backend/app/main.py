@@ -21,6 +21,22 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(reviews.router)
 
+# 프론트엔드 정적 서빙 (MVP — /web에서 index.html, /static은 파일 직접)
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
+
+FRONTEND_PATH = "/code/frontend"
+LOCAL_FRONTEND = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend"))
+FRONTEND_PATH = FRONTEND_PATH if os.path.isdir(FRONTEND_PATH) else LOCAL_FRONTEND
+
+if os.path.isdir(FRONTEND_PATH):
+    app.mount("/static", StaticFiles(directory=FRONTEND_PATH), name="static")
+
+    @app.get("/web")
+    def web():
+        return FileResponse(os.path.join(FRONTEND_PATH, "index.html"))
+
 
 @app.get("/")
 def root():

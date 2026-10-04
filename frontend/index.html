@@ -5,25 +5,117 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>협찬ON — 인플루언서 매칭</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .card-on { background: #fffbeb; }
+    .card-off { background: #f3f4f6; opacity: .75; }
+  </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
   <header class="bg-white shadow">
     <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
       <h1 class="text-2xl font-bold">협찬<span class="text-orange-500">ON</span></h1>
-      <nav class="space-x-4 text-sm">
-        <a href="#" class="text-gray-600 hover:text-gray-900">로그인</a>
-        <a href="#" class="bg-orange-500 text-white px-4 py-2 rounded-lg">회원가입</a>
+      <nav id="nav-user" class="hidden items-center gap-3">
+        <span id="nav-name" class="text-sm text-gray-600"></span>
+        <button onclick="logout()" class="text-sm text-gray-500 hover:text-gray-900">로그아웃</button>
+      </nav>
+      <nav id="nav-guest" class="space-x-4 text-sm">
+        <a href="#login" onclick="show('login')" class="text-gray-600 hover:text-gray-900">로그인</a>
+        <a href="#register" onclick="show('register')" class="bg-orange-500 text-white px-4 py-2 rounded-lg">회원가입</a>
       </nav>
     </div>
   </header>
 
-  <main class="max-w-5xl mx-auto px-4 py-10">
-    <section class="text-center py-10">
-      <h2 class="text-4xl font-bold mb-4">인플루언서와 사장님을 이어주는<br>협찬 매칭 플랫폼</h2>
-      <p class="text-gray-500 mb-8">내 근처 협찬ON 인플루언서를 만나보세요</p>
-      <div class="flex justify-center gap-4">
-        <button class="bg-orange-500 text-white px-8 py-3 rounded-lg font-semibold">인플루언서 가입</button>
-        <button class="bg-white border-2 border-orange-500 text-orange-500 px-8 py-3 rounded-lg font-semibold">사장님 가입</button>
+  <main class="max-w-5xl mx-auto px-4 py-8">
+    <!-- ── 랜딩 ── -->
+    <section id="view-home">
+      <div class="text-center py-10">
+        <h2 class="text-4xl font-bold mb-4">인플루언서와 사장님을 이어주는<br>협찬 매칭 플랫폼</h2>
+        <p class="text-gray-500 mb-8">내 근처 협찬ON 인플루언서를 만나보세요</p>
+        <div class="flex justify-center gap-4">
+          <button onclick="show('register','influencer')" class="bg-orange-500 text-white px-8 py-3 rounded-lg font-semibold">인플루언서 가입</button>
+          <button onclick="show('register','owner')" class="bg-white border-2 border-orange-500 text-orange-500 px-8 py-3 rounded-lg font-semibold">사장님 가입</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 회원가입 ── -->
+    <section id="view-register" class="hidden max-w-xl mx-auto bg-white p-8 rounded-xl shadow">
+      <h2 class="text-2xl font-bold mb-6">회원가입</h2>
+      <div class="grid grid-cols-2 gap-3 mb-6">
+        <button onclick="setRole('influencer')" id="btn-influencer"
+          class="role-btn border-2 border-gray-200 rounded-lg py-3 font-semibold">인플루언서</button>
+        <button onclick="setRole('owner')" id="btn-owner"
+          class="role-btn border-2 border-gray-200 rounded-lg py-3 font-semibold">사장님</button>
+      </div>
+      <div class="space-y-4">
+        <input id="reg-name" placeholder="이름" class="w-full border rounded-lg px-4 py-2">
+        <input id="reg-username" placeholder="아이디" class="w-full border rounded-lg px-4 py-2">
+        <input id="reg-password" type="password" placeholder="비밀번호" class="w-full border rounded-lg px-4 py-2">
+        <div id="reg-influ-only">
+          <input id="reg-ig" placeholder="인스타그램 계정 (예: sopoongjeju)" class="w-full border rounded-lg px-4 py-2 mb-2">
+          <label class="flex items-center gap-2 text-sm text-gray-600">
+            <input id="reg-ig-active" type="checkbox" checked class="w-4 h-4">
+            활성화된 공개 계정입니다 (비활성 계정은 가입 불가)
+          </label>
+        </div>
+        <div id="reg-owner-only" class="hidden">
+          <input id="reg-shop" placeholder="가게 이름 (예: 애월 감성카페)" class="w-full border rounded-lg px-4 py-2 mb-2">
+          <input id="reg-region" placeholder="지역 (예: 제주 애월)" class="w-full border rounded-lg px-4 py-2">
+        </div>
+        <p id="reg-error" class="text-red-500 text-sm hidden"></p>
+        <button onclick="doRegister()" class="w-full bg-orange-500 text-white py-3 rounded-lg font-bold">가입하기</button>
+      </div>
+    </section>
+
+    <!-- ── 로그인 ── -->
+    <section id="view-login" class="hidden max-w-md mx-auto bg-white p-8 rounded-xl shadow">
+      <h2 class="text-2xl font-bold mb-6">로그인</h2>
+      <div class="space-y-4">
+        <input id="login-username" placeholder="아이디" class="w-full border rounded-lg px-4 py-2">
+        <input id="login-password" type="password" placeholder="비밀번호" class="w-full border rounded-lg px-4 py-2">
+        <p id="login-error" class="text-red-500 text-sm hidden"></p>
+        <button onclick="doLogin()" class="w-full bg-orange-500 text-white py-3 rounded-lg font-bold">로그인</button>
+      </div>
+    </section>
+
+    <!-- ── 대시보드 ── -->
+    <section id="view-dash" class="hidden">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl font-bold">대시보드</h2>
+        <span id="dash-role" class="text-sm px-3 py-1 rounded-full bg-gray-100"></span>
+      </div>
+
+      <!-- 사장님 전용 -->
+      <div id="owner-panel" class="hidden space-y-4">
+        <div class="bg-white p-6 rounded-xl shadow">
+          <h3 class="font-bold mb-3">📍 근처 협찬ON 인플루언서 (점수순 최대 6명)</h3>
+          <div id="nearby-list" class="grid grid-cols-2 gap-3"></div>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow">
+          <h3 class="font-bold mb-2">보낸 초대 (최대 2명)</h3>
+          <div id="invite-list" class="text-sm text-gray-600"></div>
+        </div>
+      </div>
+
+      <!-- 인플루언서 전용 -->
+      <div id="influ-panel" class="hidden space-y-4">
+        <div id="toggle-card" class="card-off p-6 rounded-xl shadow cursor-pointer" onclick="toggleActive()">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="font-bold text-lg">협찬 <span id="toggle-state">OFF</span></h3>
+              <p class="text-sm text-gray-500">클릭해서 ON/OFF 전환 — ON이면 사장님 목록에 노출</p>
+            </div>
+            <div id="toggle-bulb" class="text-4xl">🌙</div>
+          </div>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow">
+          <h3 class="font-bold mb-2">받은 초대</h3>
+          <div id="invite-in" class="text-sm text-gray-600">—</div>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow">
+          <h3 class="font-bold mb-2">진행 중 매칭</h3>
+          <div id="match-list" class="text-sm text-gray-600">—</div>
+        </div>
       </div>
     </section>
   </main>
@@ -31,5 +123,139 @@
   <footer class="bg-white border-t py-6 text-center text-gray-400 text-sm">
     © 2026 협찬ON — influencer-matching
   </footer>
+
+<script>
+const API = 'http://localhost:8000';
+let token = localStorage.getItem('token') || null;
+let me = null;
+let role = 'influencer';
+
+// ── 화면 전환 ──
+function show(name, r) {
+  ['home','register','login','dash'].forEach(v =>
+    document.getElementById('view-'+v).classList.toggle('hidden', v!==name));
+  if (r) setRole(r);
+}
+function setRole(r) {
+  role = r;
+  document.getElementById('btn-influencer').className =
+    'role-btn border-2 rounded-lg py-3 font-semibold ' + (r==='influencer'
+      ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-gray-200');
+  document.getElementById('btn-owner').className =
+    'role-btn border-2 rounded-lg py-3 font-semibold ' + (r==='owner'
+      ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-gray-200');
+  document.getElementById('reg-influ-only').classList.toggle('hidden', r!=='influencer');
+  document.getElementById('reg-owner-only').classList.toggle('hidden', r!=='owner');
+}
+
+// ── API 호출 공통 ──
+async function api(path, method='GET', body=null, auth=true) {
+  const headers = {'Content-Type':'application/json'};
+  if (auth && token) headers['Authorization'] = 'Bearer '+token;
+  const res = await fetch(API+path, {method, headers, body: body?JSON.stringify(body):null});
+  const data = await res.json();
+  if (!res.ok) throw data;
+  return data;
+}
+
+// ── 회원가입 ──
+async function doRegister() {
+  try {
+    const body = {
+      username: v('reg-username'), password: v('reg-password'),
+      role, name: v('reg-name'),
+    };
+    if (role==='influencer') {
+      body.instagram_handle = v('reg-ig');
+      body.instagram_active = document.getElementById('reg-ig-active').checked;
+    } else {
+      body.shop_name = v('reg-shop');
+      body.region = v('reg-region');
+    }
+    await api('/auth/register','POST',body,false);
+    alert('가입 완료! 로그인해주세요');
+    show('login');
+  } catch (e) { err('reg-error', e.detail || '가입 실패'); }
+}
+
+// ── 로그인 ──
+async function doLogin() {
+  try {
+    const data = await api('/auth/login','POST',
+      {username: v('login-username'), password: v('login-password')}, false);
+    token = data.access_token;
+    localStorage.setItem('token', token);
+    me = await api('/auth/me');
+    enterDash();
+  } catch (e) { err('login-error', e.detail || '로그인 실패'); }
+}
+function logout() { token=null; me=null; localStorage.removeItem('token'); show('home'); }
+
+// ── 대시보드 ──
+async function enterDash() {
+  document.getElementById('nav-user').classList.remove('hidden');
+  document.getElementById('nav-user').classList.add('flex');
+  document.getElementById('nav-guest').classList.add('hidden');
+  document.getElementById('nav-name').textContent = me.name + ' 님';
+  document.getElementById('dash-role').textContent =
+    me.role==='owner' ? '사장님' : '인플루언서';
+  show('dash');
+  if (me.role==='owner') {
+    document.getElementById('owner-panel').classList.remove('hidden');
+    loadNearby();
+  } else {
+    document.getElementById('influ-panel').classList.remove('hidden');
+    paintToggle();
+  }
+}
+
+// ── 사장님: 근처 인플 ──
+async function loadNearby() {
+  const list = await api('/users/nearby/'+me.id);
+  const el = document.getElementById('nearby-list');
+  el.innerHTML = list.length ? '' : '<p class="col-span-2 text-gray-400 text-sm">협찬ON 인플루언서가 아직 없습니다</p>';
+  list.forEach(u => {
+    const d = document.createElement('div');
+    d.className = 'card-on border rounded-lg p-4';
+    d.innerHTML = `
+      <p class="font-semibold">${u.name}</p>
+      <p class="text-xs text-gray-500">${u.instagram_handle||''} · ${u.region||''}</p>
+      <p class="text-sm mt-1">⭐ ${u.influencer_score}/10</p>
+      <button onclick="invite(${u.id})" class="mt-2 bg-orange-500 text-white text-sm px-4 py-1.5 rounded-lg">초대</button>`;
+    el.appendChild(d);
+  });
+}
+async function invite(influId) {
+  try {
+    await api(`/users/invite?owner_id=${me.id}&influencer_id=${influId}`,'POST');
+    alert('초대를 보냈습니다!');
+    loadNearby();
+  } catch (e) { alert(e.detail||'초대 실패'); }
+}
+
+// ── 인플: 토글 ──
+function paintToggle() {
+  const on = me.is_active;
+  const card = document.getElementById('toggle-card');
+  card.className = (on?'card-on':'card-off') + ' p-6 rounded-xl shadow cursor-pointer';
+  document.getElementById('toggle-state').textContent = on?'ON':'OFF';
+  document.getElementById('toggle-bulb').textContent = on?'💡':'🌙';
+}
+async function toggleActive() {
+  // MVP: 로컬 반영용 — 실제 토글 API는 서버에 추가 예정
+  me.is_active = !me.is_active;
+  paintToggle();
+  alert('표시 전환 (서버 동기화는 다음 버전)');
+}
+
+// ── 유틸 ──
+function v(id){ return document.getElementById(id).value.trim(); }
+function err(id,msg){ const el=document.getElementById(id); el.textContent=msg; el.classList.remove('hidden'); }
+
+// 시작: 토큰 있으면 자동 로그인
+if (token) {
+  api('/auth/me').then(u => { me=u; enterDash(); }).catch(() => logout());
+}
+</script>
 </body>
 </html>
