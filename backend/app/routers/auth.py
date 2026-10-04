@@ -113,6 +113,13 @@ def register(data: schemas.UserCreate, db: Session = Depends(get_db)):
         ig = check_instagram(data.instagram_handle or "")
         if not ig["valid"]:
             raise HTTPException(status_code=400, detail=ig["reason"])
+        # DB에는 정규화된 handle만 저장 (URL이 들어와도 handle만 추출)
+        import re as _re
+        _m = _re.search(r"(?:instagram\.com|instagr\.am)/([A-Za-z0-9._]+)",
+                        (data.instagram_handle or "").strip().lstrip("@"))
+        if _m:
+            data.instagram_handle = _m.group(1)
+        data.instagram_handle = (data.instagram_handle or "").strip().lstrip("@").replace(" ", "")
 
     # 사장님: 사업자등록번호 진위확인 (체크섬/국세청) — 위에서 중복 확인 완료
     if data.role == "owner":

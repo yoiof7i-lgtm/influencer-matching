@@ -75,17 +75,16 @@ def _clean_bno(bno: str) -> str:
 
 
 def check_business_number(bno: str) -> dict:
-    """국세청 사업자(등록)상태 조회 — 01등록 / 02폐업 / 03휴업
+    """사업자번호 확인.
 
-    API 키 미설정 시: 체크섬만 검사하고 '수동확인 필요'로 처리
+    1차: 형식 검증 (숫자 10자리) — 체크섬은 참고만 (오탐으로 진짜 번호를 막으면 안 됨)
+    2차: 국세청 실제 조회 (NTS_API_KEY 설정 시) — 폐업/휴업/미등록 차단
     """
     bno = _clean_bno(bno)
     if len(bno) != 10:
         return {"valid": False, "reason": "사업자등록번호는 숫자 10자리입니다"}
-
-    # 1차: 체크섬 검증 (모든 사업자번호 공통 규칙)
-    if not _checksum_valid(bno):
-        return {"valid": False, "reason": "사업자등록번호 규칙이 맞지 않습니다 (다시 확인)"}
+    if not bno.isdigit():
+        return {"valid": False, "reason": "사업자등록번호는 숫자만 입력해주세요"}
 
     # 2차: 국세청 실제 조회 (키 있을 때만)
     if not NTS_API_KEY:
@@ -134,6 +133,10 @@ def _checksum_valid(bno: str) -> bool:
 def verify_profile_code(handle: str, code: str) -> dict:
     """프로필(소개글/이름)에 인증 코드가 들어갔는지 확인"""
     handle = (handle or "").strip().lstrip("@").strip()
+    m = re.search(r"(?:instagram\.com|instagr\.am)/([A-Za-z0-9._]+)", handle)
+    if m:
+        handle = m.group(1)  # URL 전체로 저장된 경우 handle만 추출
+    handle = handle.replace(" ", "")
     code = (code or "").strip()
     if not handle or not code:
         return {"verified": False, "reason": "계정명과 코드가 필요합니다"}
