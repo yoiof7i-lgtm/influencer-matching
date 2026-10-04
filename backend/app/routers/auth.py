@@ -85,6 +85,11 @@ def get_current_user(token=Depends(_oauth2), db: Session = Depends(get_db)):
 
 @router.post("/register", response_model=schemas.UserOut)
 def register(data: schemas.UserCreate, db: Session = Depends(get_db)):
+    import logging
+    logging.info(f"[register] role={data.role} username={data.username!r} "
+                 f"name={data.name!r} ig={data.instagram_handle!r} "
+                 f"ig_active={data.instagram_active} shop={data.shop_name!r} "
+                 f"biz={'있음' if data.business_number else '없음'} region={data.region!r}")
     if db.query(models.User).filter(models.User.username == data.username).first():
         raise HTTPException(status_code=400, detail="이미 존재하는 아이디입니다")
     if data.role not in ("influencer", "owner"):
@@ -137,6 +142,13 @@ def register(data: schemas.UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=schemas.Token)
 def login(data: dict, db: Session = Depends(get_db)):
+    import logging
+    uname = (data or {}).get("username", "")
+    user = db.query(models.User).filter(models.User.username == uname).first()
+    if not user:
+        logging.warning(f"[login] 계정 없음: {uname!r}")
+    elif not verify_password((data or {}).get("password", ""), user.password_hash):
+        logging.warning(f"[login] 비밀번호 불일치: {uname!r}")
     user = db.query(models.User).filter(models.User.username == data.get("username")).first()
     if not user or not verify_password(data.get("password", ""), user.password_hash):
         raise HTTPException(status_code=401, detail="아이디 또는 비밀번호가 틀립니다")
