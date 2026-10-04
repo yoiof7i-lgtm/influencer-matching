@@ -10,6 +10,18 @@ from fastapi.security import HTTPBearer as _HB
 _admin_bearer = _HB(auto_error=False)
 
 
+def _current_user(credentials=Depends(_admin_bearer), db: Session = Depends(get_db)):
+    """JWT에서 현재 사용자 조회"""
+    from app.routers.auth import verify_token
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="인증 토큰이 필요합니다")
+    user_id = verify_token(credentials.credentials)
+    user = db.query(models.User).get(user_id)
+    if not user:
+        raise HTTPException(status_code=401, detail="사용자 없음")
+    return user
+
+
 def _admin_user(credentials=Depends(_admin_bearer), db: Session = Depends(get_db)):
     """JWT에서 현재 사용자 조회 + 관리자 검증"""
     from app.routers.auth import verify_token
@@ -64,6 +76,52 @@ def invite(owner_id: int, influencer_id: int, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(m)
     return {"match_id": m.id, "status": m.status}
+
+
+@router.get("/my-invites")
+def my_invites(current=Depends(_current_user), db: Session = Depends(get_db)):
+    """사장님: 내가 보낸 초대 목록"""
+    if current.role != "owner":
+        raise HTTPException(status_code=400, detail="사장님만 조회 가능합니다")
+    invites = (
+        db.query(models.Match)
+        .filter(models.Match.owner_id == current.id)
+        .all()
+    )
+    out = []
+    for m in invites:
+        inf = db.query(models.User).get(m.influencer_id) if m.influencer_id else None
+        out.append({
+            "match_id": m.id,
+            "influencer_name": inf.name if inf else "?",
+            "status": m.status,
+        })
+    return out
+
+
+@router.get("/invitations")
+def my_invitations(current=Depends(_current_user), db: Session = Depends(get_db)):
+    """인플: 내가 받은 pending 초대 목록 (사장님 정보 포함)"""
+    if current.role != "influencer":
+        raise HTTPException(status_code=400, detail="인플루언서만 조회 가능합니다")
+    invites = (
+        db.query(models.Match)
+        .filter(models.Match.influencer_id == current.id,
+                models.Match.status == "pending")
+        .all()
+    )
+    out = []
+    for m in invites:
+        owner = db.query(models.User).get(m.owner_id)
+        out.append({
+            "match_id": m.id,
+            "owner_name": owner.name if owner else "?",
+            "shop_name": owner.shop_name if owner else "",
+            "region": owner.region if owner else "",
+            "owner_score": owner.owner_score if owner else None,
+            "created_at": str(m.created_at),
+        })
+    return out
 
 
 @router.post("/accept/{match_id}")

@@ -232,6 +232,30 @@ async function doLogin() {
     err('login-error', msg);
   }
 }
+async function loadInvites() {
+  try {
+    const list = await api('/users/invitations');
+    const el = document.getElementById('invite-in');
+    el.innerHTML = list.length ? '' : '아직 받은 초대가 없습니다';
+    list.forEach(inv => {
+      const d = document.createElement('div');
+      d.className = 'border rounded-lg p-3 mb-2 bg-yellow-50';
+      d.innerHTML = `<b>${inv.shop_name || inv.owner_name}</b> 사장님 (⭐ 업소점수 ${inv.owner_score ?? '-'})
+        <div class="text-xs text-gray-500">${inv.region || ''}</div>
+        <button onclick="acceptInvite(${inv.match_id})" class="mt-2 bg-orange-500 text-white px-4 py-1.5 rounded-lg text-sm">수락하기</button>`;
+      el.appendChild(d);
+    });
+  } catch (e) { document.getElementById('invite-in').textContent = '초대 로드 실패'; }
+}
+async function acceptInvite(matchId) {
+  try {
+    await api('/users/accept/' + matchId, 'POST');
+    alert('수락 완료! 가게 방문 일정을 잡아주세요 🎉');
+    me.is_active = false;
+    paintToggle();
+    loadInvites();
+  } catch (e) { alert(e.detail || '수락 실패'); }
+}
 async function doVerify() {
   try {
     const r = await api('/auth/verify-instagram','POST');
@@ -244,6 +268,22 @@ async function doVerify() {
       el.textContent = '⏳ ' + r.reason;
     }
   } catch (e) { document.getElementById('verify-msg').textContent = e.detail || '확인 실패'; }
+}
+async function loadMyInvites() {
+  try {
+    const list = await api('/users/my-invites');
+    const el = document.getElementById('invite-list');
+    el.innerHTML = list.length ? '' : '보낸 초대가 없습니다';
+    list.forEach(inv => {
+      const d = document.createElement('div');
+      d.className = 'border rounded-lg p-2 mb-1 text-sm';
+      const badge = inv.status==='pending' ? '⏳ 대기중' :
+                    inv.status==='accepted' ? '✅ 수락!' :
+                    inv.status==='visit_done' ? '🎬 방문완료' : '❌ 소멸';
+      d.innerHTML = `${inv.influencer_name} <span class="text-gray-400">(${badge})</span>`;
+      el.appendChild(d);
+    });
+  } catch (e) { document.getElementById('invite-list').textContent = '로드 실패'; }
 }
 async function loadPending() {
   const list = await api('/users/admin/pending');
@@ -298,6 +338,7 @@ async function enterDash() {
   } else if (me.role==='owner') {
     document.getElementById('owner-panel').classList.remove('hidden');
     loadNearby();
+    loadMyInvites();
   } else {
     document.getElementById('influ-panel').classList.remove('hidden');
     paintToggle();
@@ -305,6 +346,7 @@ async function enterDash() {
       document.getElementById('verify-card').classList.remove('hidden');
       document.getElementById('dash-code').textContent = me.ig_verify_code;
     }
+    loadInvites();
   }
 }
 
