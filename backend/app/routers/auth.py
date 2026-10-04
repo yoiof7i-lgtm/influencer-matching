@@ -92,9 +92,8 @@ def register(data: schemas.UserCreate, db: Session = Depends(get_db)):
                  f"biz={'있음' if data.business_number else '없음'} region={data.region!r}")
     if db.query(models.User).filter(models.User.username == data.username).first():
         raise HTTPException(status_code=400, detail="이미 존재하는 아이디입니다")
-    if data.role not in ("influencer", "owner"):
+    if data.role not in ("influencer", "owner", "admin"):
         raise HTTPException(status_code=400, detail="role은 influencer 또는 owner")
-
     # 사장님 사업자번호 중복 등록 방지 (한 사업자 = 한 계정)
     business_no = None
     if data.role == "owner":

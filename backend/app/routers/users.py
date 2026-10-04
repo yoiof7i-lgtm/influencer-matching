@@ -6,6 +6,22 @@ from app import models, schemas
 
 router = APIRouter(prefix="/users", tags=["users"])
 
+from fastapi.security import HTTPBearer as _HB
+_admin_bearer = _HB(auto_error=False)
+
+
+def _admin_user(credentials=Depends(_admin_bearer), db: Session = Depends(get_db)):
+    """JWT에서 현재 사용자 조회 + 관리자 검증"""
+    from app.routers.auth import verify_token
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="인증 토큰이 필요합니다")
+    user_id = verify_token(credentials.credentials)
+    user = db.query(models.User).get(user_id)
+    if not user:
+        raise HTTPException(status_code=401, detail="사용자 없음")
+    require_admin(user)
+    return user
+
 
 @router.get("/nearby/{owner_id}")
 def nearby_influencers(owner_id: int, db: Session = Depends(get_db)):
@@ -68,3 +84,54 @@ def accept(match_id: int, db: Session = Depends(get_db)):
     db.query(models.User).filter(models.User.id == m.influencer_id).update({"is_active": False})
     db.commit()
     return {"match_id": m.id, "status": "accepted"}
+
+
+# ───────── 관리자 기능 ─────────
+def require_admin(user):
+    if not user or user.role != "admin":
+        raise HTTPException(status_code=403, detail="관리자만 접근 가능합니다")
+    return user
+
+
+@router.get("/admin/pending")
+def pending_verification(current=Depends(_admin_user), db: Session = Depends(get_db)):
+    """인스타 인증 대기 인플 목록 (수동 확인용)"""
+    infs = (
+        db.query(models.User)
+        .filter(models.User.role == "influencer", models.User.ig_verified == False)  # noqa: E712
+        .all()
+    )
+    return [
+        {
+            "id": u.id,
+            "name": u.name,
+            "username": u.username,
+            "instagram_handle": u.instagram_handle,
+            "ig_verify_code": u.ig_verify_code,
+        }
+        for u in infs
+    ]
+
+
+@router.post("/admin/approve/{user_id}")
+def approve_instagram(user_id: int, current=Depends(_admin_user), db: Session = Depends(get_db)):
+    """관리자: 인스타 인증 승인 (프로필에 코드 넣었는지 직접 확인 후)"""
+    u = db.query(models.User).get(user_id)
+    if not u:
+        raise HTTPException(status_code=404, detail="사용자 없음")
+    u.ig_verified = True
+    db.commit()
+    return {"id": u.id, "username": u.username, "ig_verified": True}
+
+
+@router.post("/admin/reject/{user_id}")
+def reject_instagram(user_id: int, current=Depends(_admin_user), db: Session = Depends(get_db)):
+    """관리자: 인증 거부 — 새 코드 발급(재인증 요구)"""
+    import secrets
+    u = db.query(models.User).get(user_id)
+    if not u:
+        raise HTTPException(status_code=404, detail="사용자 없음")
+    u.ig_verify_code = "HYC-" + secrets.token_hex(2).upper()
+    u.ig_verified = False
+    db.commit()
+    return {"id": u.id, "username": u.username, "new_code": u.ig_verify_code}

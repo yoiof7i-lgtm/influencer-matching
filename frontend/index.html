@@ -112,6 +112,14 @@
         </div>
       </div>
 
+      <!-- 관리자 전용 -->
+      <div id="admin-panel" class="hidden space-y-4">
+        <div class="bg-white p-6 rounded-xl shadow">
+          <h3 class="font-bold mb-3">🛡 인스타 인증 대기 목록</h3>
+          <div id="admin-pending" class="space-y-2 text-sm"></div>
+        </div>
+      </div>
+
       <!-- 인플루언서 전용 -->
       <div id="influ-panel" class="hidden space-y-4">
         <div id="verify-card" class="hidden bg-yellow-50 border border-yellow-300 p-6 rounded-xl shadow">
@@ -237,6 +245,31 @@ async function doVerify() {
     }
   } catch (e) { document.getElementById('verify-msg').textContent = e.detail || '확인 실패'; }
 }
+async function loadPending() {
+  const list = await api('/users/admin/pending');
+  const el = document.getElementById('admin-pending');
+  el.innerHTML = list.length ? '' : '<p class="text-gray-400">대기 중인 계정이 없습니다 ✅</p>';
+  list.forEach(u => {
+    const d = document.createElement('div');
+    d.className = 'border rounded-lg p-3 flex items-center justify-between gap-2';
+    d.innerHTML = `<div><b>${u.name}</b> (${u.username})<br>
+      <a href="https://www.instagram.com/${u.instagram_handle}/" target="_blank" class="text-blue-600">@${u.instagram_handle}</a>
+      <span class="text-gray-400">코드: ${u.ig_verify_code}</span></div>
+      <div class="flex gap-2">
+        <button onclick="approve(${u.id})" class="bg-green-500 text-white px-3 py-1 rounded">승인</button>
+        <button onclick="reject(${u.id})" class="bg-red-500 text-white px-3 py-1 rounded">재인증</button>
+      </div>`;
+    el.appendChild(d);
+  });
+}
+async function approve(id) {
+  await api(`/users/admin/approve/${id}`,'POST');
+  loadPending();
+}
+async function reject(id) {
+  await api(`/users/admin/reject/${id}`,'POST');
+  loadPending();
+}
 function goLoginAfterVerify() { show('login'); document.getElementById('reg-code-box').classList.add('hidden'); document.getElementById('reg-form-box').classList.remove('hidden'); }
 function logout() {
   token = null; me = null;
@@ -259,7 +292,10 @@ async function enterDash() {
   document.getElementById('dash-role').textContent =
     me.role==='owner' ? '사장님' : '인플루언서';
   show('dash');
-  if (me.role==='owner') {
+  if (me.role==='admin') {
+    document.getElementById('admin-panel').classList.remove('hidden');
+    loadPending();
+  } else if (me.role==='owner') {
     document.getElementById('owner-panel').classList.remove('hidden');
     loadNearby();
   } else {
