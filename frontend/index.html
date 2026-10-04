@@ -125,7 +125,8 @@
   </footer>
 
 <script>
-const API = 'http://localhost:8000';
+// API 주소: 현재 접속한 주소 기준 (PC는 localhost, 핸드폰은 192.168.x.x로 자동 대응)
+const API = location.origin;
 let token = localStorage.getItem('token') || null;
 let me = null;
 let role = 'influencer';
