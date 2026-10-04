@@ -18,15 +18,21 @@ import time
 def check_instagram(handle: str) -> dict:
     """인스타 handle 확인.
 
+    입력값 자동 정리: URL 붙여넣기(https://instagram.com/xxx), @포함, 공백 처리
     1차: 프로필 페이지 HTML에서 계정 마커(@handle) 검색 — 유명계정/공개계정 일부 성공
     2차: 인스타 로그인 벽으로 자동 판별 불가 시 → '수동확인' 상태 반환
-         (가입은 허용하되 verified=False → 운영자 승인 큐에서 확인)
     """
     handle = (handle or "").strip().lstrip("@").strip()
+    # URL로 입력한 경우 handle만 추출: instagram.com/HANDLE 또는 instagr.am/HANDLE
+    m = re.search(r"(?:instagram\.com|instagr\.am)/([A-Za-z0-9._]+)", handle)
+    if m:
+        handle = m.group(1)
+    handle = handle.replace(" ", "")  # 공백 제거
     if not handle:
         return {"valid": False, "reason": "인스타그램 계정을 입력해주세요"}
     if not re.fullmatch(r"[a-zA-Z0-9._]{1,30}", handle):
-        return {"valid": False, "reason": "계정명은 영문/숫자/._만 1~30자입니다"}
+        return {"valid": False,
+                "reason": f"'{handle}' 은 인스타 계정명이 아닙니다 — 인스타 아이디(영문/숫자/._)를 입력해주세요 (예: sopoongjeju)"}
 
     url = f"https://www.instagram.com/{handle}/"
     req = urllib.request.Request(url, headers={

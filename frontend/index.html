@@ -52,7 +52,7 @@
         <input id="reg-username" placeholder="아이디" class="w-full border rounded-lg px-4 py-2">
         <input id="reg-password" type="password" placeholder="비밀번호" class="w-full border rounded-lg px-4 py-2">
         <div id="reg-influ-only">
-          <input id="reg-ig" placeholder="인스타그램 계정 (예: sopoongjeju)" class="w-full border rounded-lg px-4 py-2 mb-2">
+          <input id="reg-ig" placeholder="인스타 아이디 (예: sopoongjeju — URL 붙여넣어도 됨)" class="w-full border rounded-lg px-4 py-2 mb-2">
           <label class="flex items-center gap-2 text-sm text-gray-600">
             <input id="reg-ig-active" type="checkbox" checked class="w-4 h-4">
             활성화된 공개 계정입니다 (비활성 계정은 가입 불가)
@@ -191,7 +191,10 @@ async function doLogin() {
     localStorage.setItem('token', token);
     me = await api('/auth/me');
     enterDash();
-  } catch (e) { err('login-error', e.detail || '로그인 실패'); }
+  } catch (e) {
+    const msg = (e && e.detail) || '로그인 실패 — 아직 가입 안 한 아이디라면 먼저 회원가입해주세요';
+    err('login-error', msg);
+  }
 }
 function logout() {
   token = null; me = null;
