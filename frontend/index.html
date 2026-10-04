@@ -190,7 +190,17 @@ async function doLogin() {
     enterDash();
   } catch (e) { err('login-error', e.detail || '로그인 실패'); }
 }
-function logout() { token=null; me=null; localStorage.removeItem('token'); show('home'); }
+function logout() {
+  token = null; me = null;
+  localStorage.removeItem('token');
+  // 상단 네비 복구 + 대시보드 패널 숨김 + 홈 화면
+  const nu = document.getElementById('nav-user');
+  nu.classList.add('hidden'); nu.classList.remove('flex');
+  document.getElementById('nav-guest').classList.remove('hidden');
+  document.getElementById('owner-panel').classList.add('hidden');
+  document.getElementById('influ-panel').classList.add('hidden');
+  show('home');
+}
 
 // ── 대시보드 ──
 async function enterDash() {
