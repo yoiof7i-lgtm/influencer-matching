@@ -35,7 +35,12 @@ if os.path.isdir(FRONTEND_PATH):
 
     @app.get("/web")
     def web():
-        return FileResponse(os.path.join(FRONTEND_PATH, "index.html"))
+        # 브라우저(특히 모바일) 캐시 방지 — 항상 최신 HTML 받도록
+        resp = FileResponse(os.path.join(FRONTEND_PATH, "index.html"))
+        resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        resp.headers["Pragma"] = "no-cache"
+        resp.headers["Expires"] = "0"
+        return resp
 
 
 @app.get("/")
