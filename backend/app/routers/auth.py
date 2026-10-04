@@ -4,6 +4,7 @@ from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models, schemas
+from app.verify import check_instagram, check_business_number
 
 import hashlib
 import hmac
@@ -89,9 +90,23 @@ def register(data: schemas.UserCreate, db: Session = Depends(get_db)):
     if data.role not in ("influencer", "owner"):
         raise HTTPException(status_code=400, detail="role은 influencer 또는 owner")
 
-    # 인플루언서는 인스타 활성화 확인 필수
-    if data.role == "influencer" and not data.instagram_active:
-        raise HTTPException(status_code=400, detail="인스타그램 활성화 계정만 가입 가능합니다")
+    # 인플루언서: 인스타 활성화 확인 (자동검증 → 실패 시 수동승인 큐)
+    if data.role == "influencer":
+        if not data.instagram_active:
+            raise HTTPException(status_code=400, detail="인스타그램 활성화 계정만 가입 가능합니다")
+        ig = check_instagram(data.instagram_handle or "")
+        if not ig["valid"]:
+            raise HTTPException(status_code=400, detail=ig["reason"])
+
+    # 사장님은 사업자등록번호 진위확인 (국세청)
+    business_no = None
+    if data.role == "owner":
+        business_no = (data.business_number or "").strip()
+        if not business_no:
+            raise HTTPException(status_code=400, detail="사업자등록번호를 입력해주세요")
+        biz = check_business_number(business_no)
+        if not biz["valid"]:
+            raise HTTPException(status_code=400, detail=biz["reason"])
 
     user = models.User(
         username=data.username,
@@ -101,6 +116,7 @@ def register(data: schemas.UserCreate, db: Session = Depends(get_db)):
         instagram_handle=data.instagram_handle,
         instagram_active=data.instagram_active,
         shop_name=data.shop_name,
+        business_number=business_no,
         region=data.region,
         lat=data.lat,
         lng=data.lng,

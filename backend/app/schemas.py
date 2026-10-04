@@ -12,6 +12,7 @@ class UserCreate(BaseModel):
     instagram_handle: Optional[str] = None
     instagram_active: Optional[bool] = False
     shop_name: Optional[str] = None
+    business_number: Optional[str] = None  # 사장님: 사업자등록번호 (진위확인)
     region: Optional[str] = None
     lat: Optional[float] = None
     lng: Optional[float] = None

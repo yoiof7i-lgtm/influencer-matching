@@ -15,6 +15,7 @@ class User(Base):
     instagram_handle = Column(String(100))          # 인플루언서만
     instagram_active = Column(Boolean, default=False)  # 인스타 활성화 확인
     shop_name = Column(String(100))                 # 사장님만
+    business_number = Column(String(20))            # 사장님: 사업자등록번호
     region = Column(String(50))                     # 위치기반 지역
     lat = Column(Float)
     lng = Column(Float)
