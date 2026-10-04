@@ -14,7 +14,7 @@ def create_review(data: schemas.ReviewCreate, db: Session = Depends(get_db)):
     if data.score_delta not in ALLOWED_DELTAS:
         raise HTTPException(status_code=400, detail="평가는 ±0.2/±0.1/0 중 하나여야 합니다")
     m = db.query(models.Match).get(data.match_id)
-    if not m or m.status != "accepted":
+    if not m or m.status not in ("accepted", "visit_done"):
         raise HTTPException(status_code=404, detail="유효한 매칭이 없습니다")
     r = models.Review(
         match_id=data.match_id,
