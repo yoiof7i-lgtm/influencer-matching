@@ -90,6 +90,18 @@ def register(data: schemas.UserCreate, db: Session = Depends(get_db)):
     if data.role not in ("influencer", "owner"):
         raise HTTPException(status_code=400, detail="role은 influencer 또는 owner")
 
+    # 사장님 사업자번호 중복 등록 방지 (한 사업자 = 한 계정)
+    business_no = None
+    if data.role == "owner":
+        business_no = (data.business_number or "").strip()
+        if not business_no:
+            raise HTTPException(status_code=400, detail="사업자등록번호를 입력해주세요")
+        dup = db.query(models.User).filter(
+            models.User.business_number == business_no).first()
+        if dup:
+            raise HTTPException(status_code=400,
+                detail="이미 등록된 사업자번호입니다 (다른 계정으로 가입 불가)")
+
     # 인플루언서: 인스타 활성화 확인 (자동검증 → 실패 시 수동승인 큐)
     if data.role == "influencer":
         if not data.instagram_active:
@@ -98,12 +110,8 @@ def register(data: schemas.UserCreate, db: Session = Depends(get_db)):
         if not ig["valid"]:
             raise HTTPException(status_code=400, detail=ig["reason"])
 
-    # 사장님은 사업자등록번호 진위확인 (국세청)
-    business_no = None
+    # 사장님: 사업자등록번호 진위확인 (체크섬/국세청) — 위에서 중복 확인 완료
     if data.role == "owner":
-        business_no = (data.business_number or "").strip()
-        if not business_no:
-            raise HTTPException(status_code=400, detail="사업자등록번호를 입력해주세요")
         biz = check_business_number(business_no)
         if not biz["valid"]:
             raise HTTPException(status_code=400, detail=biz["reason"])
