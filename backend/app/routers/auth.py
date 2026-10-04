@@ -4,7 +4,7 @@ from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models, schemas
-from app.verify import check_instagram, check_business_number
+from app.verify import check_instagram, check_business_number, verify_profile_code
 
 import hashlib
 import hmac
@@ -121,6 +121,12 @@ def register(data: schemas.UserCreate, db: Session = Depends(get_db)):
         if not biz["valid"]:
             raise HTTPException(status_code=400, detail=biz["reason"])
 
+    # 인플: 프로필 코드 인증용 코드 발급 (본인 계정 확인용)
+    ig_code = None
+    if data.role == "influencer":
+        import secrets
+        ig_code = "HYC-" + secrets.token_hex(2).upper()  # 예: HYC-3F7K
+
     user = models.User(
         username=data.username,
         password_hash=hash_password(data.password),  # PBKDF2-SHA256 해시 저장
@@ -130,6 +136,7 @@ def register(data: schemas.UserCreate, db: Session = Depends(get_db)):
         instagram_active=data.instagram_active,
         shop_name=data.shop_name,
         business_number=business_no,
+        ig_verify_code=ig_code,
         region=data.region,
         lat=data.lat,
         lng=data.lng,
@@ -159,3 +166,23 @@ def login(data: dict, db: Session = Depends(get_db)):
 def me(current: models.User = Depends(get_current_user)):
     """보호된 엔드포인트 — JWT 필요. 내 정보 조회."""
     return current
+
+
+@router.post("/verify-instagram")
+def verify_instagram(current: models.User = Depends(get_current_user),
+                     db: Session = Depends(get_db)):
+    """인플: 프로필에 넣은 인증 코드 확인 (본인 계정 인증)"""
+    if current.role != "influencer":
+        raise HTTPException(status_code=400, detail="인플루언서만 인증 대상입니다")
+    if not current.instagram_handle:
+        raise HTTPException(status_code=400, detail="인스타 계정이 없습니다")
+    if current.ig_verified:
+        return {"verified": True, "reason": "이미 인증 완료"}
+
+    r = verify_profile_code(current.instagram_handle, current.ig_verify_code or "")
+    if r.get("verified"):
+        current.ig_verified = True
+        db.add(current)
+        db.commit()
+        return {"verified": True, "reason": r["reason"]}
+    return r

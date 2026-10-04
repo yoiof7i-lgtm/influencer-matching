@@ -131,3 +131,30 @@ def _checksum_valid(bno: str) -> bool:
     total += (int(bno[8]) * 5) // 10
     check = (10 - (total % 10)) % 10
     return check == int(bno[9])
+def verify_profile_code(handle: str, code: str) -> dict:
+    """프로필(소개글/이름)에 인증 코드가 들어갔는지 확인"""
+    handle = (handle or "").strip().lstrip("@").strip()
+    code = (code or "").strip()
+    if not handle or not code:
+        return {"verified": False, "reason": "계정명과 코드가 필요합니다"}
+    url = f"https://www.instagram.com/{handle}/"
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept-Language": "ko,en;q=0.9",
+    })
+    try:
+        body = urllib.request.urlopen(req, timeout=15).read(1500000).decode("utf-8", errors="ignore")
+        low = body.lower()
+        if code.lower() in low:
+            return {"verified": True, "reason": "프로필에서 인증 코드 확인 — 본인 인증 완료"}
+        return {"verified": False, "pending_manual": True,
+                "reason": "자동 확인 실패 — 운영자가 수동 확인합니다 (수 시간 내 처리)"}
+    except urllib.error.HTTPError as e:
+        if e.code in (404, 410):
+            return {"verified": False, "reason": "계정을 찾을 수 없습니다"}
+        # 로그인 벽 → 자동 확인 불가 → 수동 승인 대기로
+        return {"verified": False, "wall": True,
+                "reason": "인스타 확인 불가(벽) — 운영자가 수동 확인합니다"}
+    except Exception:
+        return {"verified": False, "wall": True,
+                "reason": "확인 실패 — 운영자가 수동 확인합니다"}

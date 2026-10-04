@@ -40,6 +40,7 @@
 
     <!-- ── 회원가입 ── -->
     <section id="view-register" class="hidden max-w-xl mx-auto bg-white p-8 rounded-xl shadow">
+      <div id="reg-form-box">
       <h2 class="text-2xl font-bold mb-6">회원가입</h2>
       <div class="grid grid-cols-2 gap-3 mb-6">
         <button onclick="setRole('influencer')" id="btn-influencer"
@@ -66,6 +67,18 @@
         </div>
         <p id="reg-error" class="text-red-500 text-sm hidden"></p>
         <button onclick="doRegister()" class="w-full bg-orange-500 text-white py-3 rounded-lg font-bold">가입하기</button>
+      </div>
+      </div>
+      <div id="reg-code-box" class="hidden text-center py-4">
+        <h2 class="text-2xl font-bold mb-3">가입 완료! 🎉</h2>
+        <p class="text-gray-600 mb-2">마지막 단계 — 인스타 본인 인증</p>
+        <p class="text-sm text-gray-500 mb-3">인스타 앱 → 프로필 → 프로필 편집 → 소개란에<br>아래 코드를 그대로 넣고 저장해주세요</p>
+        <div class="bg-orange-50 border-2 border-orange-300 rounded-xl py-4 mb-4">
+          <span id="verify-code-text" class="text-2xl font-bold text-orange-600 tracking-widest"></span>
+        </div>
+        <p class="text-sm text-gray-500 mb-4">넣으신 후 아래 버튼을 누르면 자동 확인합니다</p>
+        <button onclick="goLoginAfterVerify()" class="w-full bg-orange-500 text-white py-3 rounded-lg font-bold mb-2">확인했습니다 — 로그인하러 가기</button>
+        <p class="text-xs text-gray-400">코드 확인은 로그인 후 대시보드에서도 할 수 있어요</p>
       </div>
     </section>
 
@@ -101,6 +114,15 @@
 
       <!-- 인플루언서 전용 -->
       <div id="influ-panel" class="hidden space-y-4">
+        <div id="verify-card" class="hidden bg-yellow-50 border border-yellow-300 p-6 rounded-xl shadow">
+          <h3 class="font-bold mb-1">📌 인스타 본인 인증</h3>
+          <p class="text-sm text-gray-600 mb-2">인스타 프로필 소개란에 아래 코드를 넣고 저장한 뒤 확인 버튼을 눌러주세요</p>
+          <div class="bg-white border rounded-lg py-2 px-4 mb-3 inline-block">
+            <span id="dash-code" class="font-bold text-orange-600 tracking-widest"></span>
+          </div>
+          <button onclick="doVerify()" class="bg-orange-500 text-white px-5 py-2 rounded-lg text-sm font-semibold">인증 확인</button>
+          <p id="verify-msg" class="text-sm mt-2"></p>
+        </div>
         <div id="toggle-card" class="card-off p-6 rounded-xl shadow cursor-pointer" onclick="toggleActive()">
           <div class="flex items-center justify-between">
             <div>
@@ -176,9 +198,15 @@ async function doRegister() {
       body.business_number = v('reg-bizno');
       body.region = v('reg-region');
     }
-    await api('/auth/register','POST',body,false);
-    alert('가입 완료! 로그인해주세요');
-    show('login');
+    const reg = await api('/auth/register','POST',body,false);
+    if (reg.role==='influencer' && reg.ig_verify_code) {
+      document.getElementById('verify-code-text').textContent = reg.ig_verify_code;
+      document.getElementById('reg-code-box').classList.remove('hidden');
+      document.getElementById('reg-form-box').classList.add('hidden');
+    } else {
+      alert('가입 완료! 로그인해주세요');
+      show('login');
+    }
   } catch (e) { err('reg-error', e.detail || '가입 실패'); }
 }
 
@@ -196,6 +224,20 @@ async function doLogin() {
     err('login-error', msg);
   }
 }
+async function doVerify() {
+  try {
+    const r = await api('/auth/verify-instagram','POST');
+    const el = document.getElementById('verify-msg');
+    if (r.verified) {
+      el.textContent = '✅ ' + r.reason;
+      document.getElementById('verify-card').classList.add('hidden');
+      me.ig_verified = true;
+    } else {
+      el.textContent = '⏳ ' + r.reason;
+    }
+  } catch (e) { document.getElementById('verify-msg').textContent = e.detail || '확인 실패'; }
+}
+function goLoginAfterVerify() { show('login'); document.getElementById('reg-code-box').classList.add('hidden'); document.getElementById('reg-form-box').classList.remove('hidden'); }
 function logout() {
   token = null; me = null;
   localStorage.removeItem('token');
@@ -223,6 +265,10 @@ async function enterDash() {
   } else {
     document.getElementById('influ-panel').classList.remove('hidden');
     paintToggle();
+    if (!me.ig_verified && me.ig_verify_code) {
+      document.getElementById('verify-card').classList.remove('hidden');
+      document.getElementById('dash-code').textContent = me.ig_verify_code;
+    }
   }
 }
 

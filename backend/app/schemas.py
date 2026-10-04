@@ -26,6 +26,8 @@ class UserOut(BaseModel):
     influencer_score: Optional[float] = None
     owner_score: Optional[float] = None
     is_active: bool
+    ig_verified: Optional[bool] = None
+    ig_verify_code: Optional[str] = None
 
     class Config:
         from_attributes = True

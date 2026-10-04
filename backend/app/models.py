@@ -16,6 +16,8 @@ class User(Base):
     instagram_active = Column(Boolean, default=False)  # 인스타 활성화 확인
     shop_name = Column(String(100))                 # 사장님만
     business_number = Column(String(20))            # 사장님: 사업자등록번호
+    ig_verified = Column(Boolean, default=False)    # 인스타 본인인증 완료 여부
+    ig_verify_code = Column(String(12))             # 프로필에 넣을 인증 코드
     region = Column(String(50))                     # 위치기반 지역
     lat = Column(Float)
     lng = Column(Float)
