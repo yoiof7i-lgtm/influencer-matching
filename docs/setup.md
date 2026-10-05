@@ -64,3 +64,15 @@ docker compose up -d --build # 코드 수정 후 재빌드
 - 거리순 정렬 (Haversine)
 - 후기 3개 미제출 → OFF 자동 배치
 - 2주 일괄 평가 반영 배치
+
+## ⚠️ 프론트 수정 시 필수 점검 (김비서 실수 방지)
+
+index.html의 `<script>`는 단일 블록. 함수를 수정/삭제할 때 아래 확인 필수:
+
+1. HTML `onclick`에서 호출하는 모든 함수가 JS에 `function`으로 정의돼 있는지:
+   - 현재 목록: show, setRole, doRegister, doLogin, logout, toggleActive, paintToggle,
+     loadNearby, invite, loadMyInvites, loadInvites, acceptInvite, doVerify,
+     loadPending, approve, reject, resetPw, showPhoto, closePhoto, submitInvite,
+     closeInviteModal, goLoginAfterVerify, v, err
+2. 문법 검사: 스크립트 블록 추출 → `node --check`
+3. 과거 실수: 이전 수정 중 v/err/paintToggle/toggleActive 유실 → 버튼 전면 먹통 (2026-10-05)
