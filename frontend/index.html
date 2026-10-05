@@ -178,6 +178,12 @@
     </div>
   </div>
 
+  <!-- 사진 크게 보기 -->
+  <div id="photo-viewer" class="hidden fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-4" onclick="closePhoto()">
+    <img id="photo-viewer-img" class="max-w-full max-h-full object-contain rounded-lg">
+    <button class="absolute top-4 right-6 text-white text-3xl" onclick="closePhoto()">✕</button>
+  </div>
+
   <footer class="bg-white border-t py-6 text-center text-gray-400 text-sm">
     © 2026 협찬ON — influencer-matching
   </footer>
@@ -270,8 +276,8 @@ async function loadInvites() {
         ${inv.region ? `<div class="text-xs text-gray-500">📍 ${inv.region}</div>` : ''}
         ${inv.offer_menu ? `<div class="text-sm mt-1">🎁 협찬메뉴: <b>${inv.offer_menu}</b></div>` : ''}
         ${inv.offer_text ? `<div class="text-xs text-gray-600 mt-1">${inv.offer_text}</div>` : ''}
-        ${(inv.offer_photos||[]).length ? `<div class="flex gap-2 mt-2">${inv.offer_photos.map(ph =>
-          `<img src="${ph}" class="w-20 h-20 object-cover rounded-lg border">`).join('')}</div>` : ''}
+        ${(inv.offer_photos||[]).length ? `<div class="grid grid-cols-2 gap-2 mt-2">${inv.offer_photos.map(ph =>
+          `<img src="${ph}" onclick="showPhoto('${ph}')" class="w-full h-40 object-cover rounded-lg border cursor-pointer hover:opacity-90" loading="lazy">`).join('')}</div>` : ''}
         <button onclick="acceptInvite(${inv.match_id})" class="mt-2 bg-orange-500 text-white px-4 py-1.5 rounded-lg text-sm font-semibold">✅ 지금 협찬 가능 — 수락</button>`;
       el.appendChild(d);
     });
@@ -339,6 +345,13 @@ async function approve(id) {
 async function reject(id) {
   await api(`/users/admin/reject/${id}`,'POST');
   loadPending();
+}
+function showPhoto(src) {
+  document.getElementById('photo-viewer-img').src = src;
+  document.getElementById('photo-viewer').classList.remove('hidden');
+}
+function closePhoto() {
+  document.getElementById('photo-viewer').classList.add('hidden');
 }
 function goLoginAfterVerify() { show('login'); document.getElementById('reg-code-box').classList.add('hidden'); document.getElementById('reg-form-box').classList.remove('hidden'); }
 function logout() {
