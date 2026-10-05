@@ -6,6 +6,8 @@
   <title>협찬ON — 인플루언서 매칭</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
+    /* Tailwind CDN 실패 대비 핵심 폴백 */
+    .hidden { display: none !important; }
     .card-on { background: #fffbeb; }
     .card-off { background: #f3f4f6; opacity: .75; }
   </style>
@@ -372,6 +374,11 @@ function showPhoto(src) {
 function closePhoto() {
   document.getElementById('photo-viewer').classList.add('hidden');
 }
+// 방어: 화면을 덮는 요소가 있으면 클릭 시 정리 (버튼 먹통 방지)
+document.addEventListener('click', function(e){
+  const modal = document.getElementById('invite-modal');
+  if (modal && !modal.classList.contains('hidden') && e.target === modal) closeInviteModal();
+}, true);
 async function resetPw() {
   try {
     const r = await api('/users/admin/reset-password','POST',
