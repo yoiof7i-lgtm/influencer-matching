@@ -83,6 +83,7 @@ def nearby_influencers(owner_id: int, db: Session = Depends(get_db)):
 @router.post("/invite")
 def invite(owner_id: int, influencer_id: int,
            offer_text: str = "", offer_menu: str = "",
+           offer_photos: str = "",
            db: Session = Depends(get_db)):
     """사장님 → 인플 초대 (최대 2명, 협찬 내용 포함)"""
     pending = (
@@ -93,7 +94,8 @@ def invite(owner_id: int, influencer_id: int,
     if pending >= 2:
         raise HTTPException(status_code=400, detail="초대는 최대 2명까지 가능합니다")
     m = models.Match(owner_id=owner_id, influencer_id=influencer_id, status="pending",
-                     offer_text=offer_text, offer_menu=offer_menu)
+                     offer_text=offer_text, offer_menu=offer_menu,
+                     offer_photos=offer_photos[:500])
     db.add(m)
     db.commit()
     db.refresh(m)
@@ -143,6 +145,7 @@ def my_invitations(current=Depends(_current_user), db: Session = Depends(get_db)
             "owner_score": owner.owner_score if owner else None,
             "offer_text": m.offer_text or "",
             "offer_menu": m.offer_menu or "",
+            "offer_photos": (m.offer_photos or "").split(",") if m.offer_photos else [],
             "created_at": str(m.created_at),
         })
     return out
@@ -217,3 +220,33 @@ def reject_instagram(user_id: int, current=Depends(_admin_user), db: Session = D
     u.ig_verified = False
     db.commit()
     return {"id": u.id, "username": u.username, "new_code": u.ig_verify_code}
+
+
+import base64 as _b64
+import secrets as _secrets
+import os as _os
+
+UPLOAD_DIR = "/code/uploads"
+_os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+
+@router.post("/upload-photo")
+def upload_photo(payload: dict = None, current=Depends(_current_user)):
+    """사장님: 협찬 사진 업로드 (base64 data URL, 1장당 1호출, 최대 2장은 프론트에서 제한)"""
+    data_url = (payload or {}).get("data_url", "")
+    if not data_url.startswith("data:image/"):
+        raise HTTPException(status_code=400, detail="이미지 파일만 업로드 가능합니다")
+    try:
+        header, b64 = data_url.split(",", 1)
+        ext = "jpg" if "jpeg" in header or "jpg" in header else "png"
+        raw = _b64.b64decode(b64)
+        if len(raw) > 5 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="파일이 너무 큽니다 (최대 5MB)")
+        fname = f"{_secrets.token_hex(6)}.{ext}"
+        with open(_os.path.join(UPLOAD_DIR, fname), "wb") as f:
+            f.write(raw)
+        return {"url": f"/uploads/{fname}"}
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=400, detail="업로드 실패 — 다른 이미지로 시도해주세요")

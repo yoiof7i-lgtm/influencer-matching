@@ -33,6 +33,7 @@ services:
     volumes:
       - ./backend/app:/code/app
       - ./frontend:/code/frontend:ro
+      - ./backend/uploads:/code/uploads
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 volumes:
