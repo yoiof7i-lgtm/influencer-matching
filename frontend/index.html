@@ -251,6 +251,19 @@ function paintToggle() {
   document.getElementById('toggle-bulb').textContent = on?'💡':'🌙';
 }
 
+async function toggleActive() {
+  try {
+    // MVP: 서버에 토글 저장 엔드포인트가 아직 없어 로컬 반영 (다음 버전에서 API 연결)
+    me.is_active = !me.is_active;
+    paintToggle();
+    if (me.is_active) {
+      alert('💡 협찬 ON — 사장님들 목록에 노출됩니다');
+    } else {
+      alert('🌙 협찬 OFF — 목록에서 사라졌습니다');
+    }
+  } catch (e) { alert(e.detail || '전환 실패'); }
+}
+
 // ── 유틸 ──
 function v(id){ return document.getElementById(id).value.trim(); }
 function err(id,msg){ const el=document.getElementById(id); el.textContent=msg; el.classList.remove('hidden'); }
