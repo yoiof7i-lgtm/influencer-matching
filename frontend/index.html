@@ -25,6 +25,7 @@
     </div>
   </header>
 
+  <div id="js-error" class="hidden max-w-5xl mx-auto mt-2 bg-red-50 border border-red-300 text-red-700 text-sm rounded-lg px-4 py-2"></div>
   <main class="max-w-5xl mx-auto px-4 py-8">
     <!-- ── 랜딩 ── -->
     <section id="view-home">
@@ -201,6 +202,13 @@
 <script>
 // API 주소: 현재 접속한 주소 기준 (PC는 localhost, 핸드폰은 192.168.x.x로 자동 대응)
 const API = location.origin;
+// JS 오류 자동 보고 (진단용)
+window.onerror = function(msg, src, line, col) {
+  try { fetch(API + '/health', {method:'HEAD'}); } catch(e){}
+  const el = document.getElementById('js-error');
+  if (el) { el.textContent = '⚠ 화면 오류: ' + msg + ' (line ' + line + ')'; el.classList.remove('hidden'); }
+  return false;
+};
 let token = localStorage.getItem('token') || null;
 let me = null;
 let role = 'influencer';
@@ -270,6 +278,7 @@ async function doLogin() {
     me = await api('/auth/me');
     enterDash();
   } catch (e) {
+    console.error('login fail:', e);
     const msg = (e && e.detail) || '로그인 실패 — 아직 가입 안 한 아이디라면 먼저 회원가입해주세요';
     err('login-error', msg);
   }
