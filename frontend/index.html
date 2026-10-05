@@ -152,6 +152,32 @@
     </section>
   </main>
 
+  <!-- 협찬초대 모달 -->
+  <div id="invite-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+      <h3 class="text-lg font-bold mb-1">📩 협찬초대 — <span id="im-influ"></span></h3>
+      <p class="text-xs text-gray-400 mb-4">협찬 메뉴와 가게 분위기를 사진과 함께 보내주세요</p>
+
+      <label class="text-sm font-semibold block mb-1">1️⃣ 협찬 메뉴</label>
+      <input id="im-menu" placeholder="예: 브런치 2인 + 아메리카노 2잔" class="w-full border rounded-lg px-3 py-2 mb-2">
+      <input id="im-menu-photos" type="file" accept="image/*" multiple class="text-sm mb-1" onchange="previewPhotos('im-menu-photos','im-menu-preview')">
+      <p class="text-xs text-gray-400 mb-2">메뉴 사진 1~2장 (선택)</p>
+      <div id="im-menu-preview" class="flex gap-2 mb-4"></div>
+
+      <label class="text-sm font-semibold block mb-1">2️⃣ 가게 분위기 / 매력</label>
+      <input id="im-desc" placeholder="예: 애월 바다뷰 감성카페, 실내 촬영 좋음" class="w-full border rounded-lg px-3 py-2 mb-2">
+      <input id="im-desc-photos" type="file" accept="image/*" multiple class="text-sm mb-1" onchange="previewPhotos('im-desc-photos','im-desc-preview')">
+      <p class="text-xs text-gray-400 mb-2">분위기 사진 1~2장 (선택)</p>
+      <div id="im-desc-preview" class="flex gap-2 mb-4"></div>
+
+      <p id="im-error" class="text-red-500 text-sm hidden mb-2"></p>
+      <div class="flex gap-2">
+        <button onclick="closeInviteModal()" class="flex-1 border rounded-lg py-2.5 text-gray-600">취소</button>
+        <button onclick="submitInvite()" class="flex-1 bg-orange-500 text-white rounded-lg py-2.5 font-bold">초대 보내기</button>
+      </div>
+    </div>
+  </div>
+
   <footer class="bg-white border-t py-6 text-center text-gray-400 text-sm">
     © 2026 협찬ON — influencer-matching
   </footer>
@@ -370,58 +396,69 @@ async function loadNearby() {
     el.appendChild(d);
   });
 }
-async function invite(influId, influName) {
-  const menu = prompt('[' + influName + '] 인플에게 제공할 협찬 메뉴\n(예: 브런치 2인 + 아메리카노 2잔)');
-  if (menu === null) return;
-  if (menu.trim() === '') { alert('협찬 메뉴를 입력해주세요'); return; }
-  const desc = prompt('가게 분위기/매력 (예: 애월 바다뷰 감성카페, 실내 촬영 좋음)') || '';
-  // 사진 첨부 (1~2장, 선택)
-  const photoInput = document.createElement('input');
-  photoInput.type = 'file'; photoInput.accept = 'image/*'; photoInput.multiple = true;
-  const photos = await new Promise(res => {
-    photoInput.onchange = () => res(Array.from(photoInput.files).slice(0,2));
-    photoInput.oncancel = () => res([]);
-    photoInput.click();
-  });
-  const urls = [];
-  for (const f of photos) {
-    const dataUrl = await new Promise(res => {
-      const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(f);
-    });
-    try {
-      const up = await api('/users/upload-photo', 'POST', {data_url: dataUrl});
-      urls.push(up.url);
-    } catch (e) { alert('사진 업로드 실패: ' + (e.detail||'')); }
+let imTarget = null;
+function invite(influId, influName) {
+  imTarget = {id: influId, name: influName};
+  document.getElementById('im-influ').textContent = influName;
+  document.getElementById('im-menu').value = '';
+  document.getElementById('im-desc').value = '';
+  document.getElementById('im-menu-photos').value = '';
+  document.getElementById('im-desc-photos').value = '';
+  document.getElementById('im-menu-preview').innerHTML = '';
+  document.getElementById('im-desc-preview').innerHTML = '';
+  document.getElementById('im-error').classList.add('hidden');
+  document.getElementById('invite-modal').classList.remove('hidden');
+}
+function closeInviteModal() {
+  document.getElementById('invite-modal').classList.add('hidden');
+  imTarget = null;
+}
+function previewPhotos(inputId, previewId) {
+  const files = Array.from(document.getElementById(inputId).files || []).slice(0, 2);
+  const el = document.getElementById(previewId);
+  el.innerHTML = '';
+  let count = 0;
+  for (const f of files) {
+    if (count >= 2) break;
+    const r = new FileReader();
+    r.onload = () => {
+      const img = document.createElement('img');
+      img.src = r.result; img.className = 'w-14 h-14 object-cover rounded border';
+      el.appendChild(img);
+    };
+    r.readAsDataURL(f);
+    count++;
   }
+}
+async function uploadSection(inputId) {
+  const files = Array.from(document.getElementById(inputId).files || []).slice(0, 2);
+  const urls = [];
+  for (const f of files) {
+    const dataUrl = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(f); });
+    const up = await api('/users/upload-photo', 'POST', {data_url: dataUrl});
+    urls.push(up.url);
+  }
+  return urls;
+}
+async function submitInvite() {
+  const menu = document.getElementById('im-menu').value.trim();
+  if (!menu) { err('im-error', '협찬 메뉴를 입력해주세요'); return; }
+  const desc = document.getElementById('im-desc').value.trim();
   try {
-    await api('/users/invite?owner_id=' + me.id + '&influencer_id=' + influId +
-      '&offer_text=' + encodeURIComponent(desc) + '&offer_menu=' + encodeURIComponent(menu) +
-      '&offer_photos=' + encodeURIComponent(urls.join(',')), 'POST');
-    alert('초대를 보냈습니다!' + (urls.length ? ' (사진 ' + urls.length + '장 포함)' : ''));
+    const menuUrls = await uploadSection('im-menu-photos');
+    const descUrls = await uploadSection('im-desc-photos');
+    // 메뉴 사진 + 분위기 사진 합쳐서 전송 (순서 유지: 메뉴 먼저)
+    const all = menuUrls.concat(descUrls).join(',');
+    await api('/users/invite?owner_id=' + me.id + '&influencer_id=' + imTarget.id +
+      '&offer_text=' + encodeURIComponent(desc) +
+      '&offer_menu=' + encodeURIComponent(menu) +
+      '&offer_photos=' + encodeURIComponent(all), 'POST');
+    alert('초대를 보냈습니다!' + (all ? ' (사진 포함)' : ''));
+    closeInviteModal();
     loadNearby(); loadMyInvites();
-  } catch (e) { alert(e.detail||'초대 실패'); }
+  } catch (e) { err('im-error', e.detail || '발송 실패'); }
 }
 
-// ── 인플: 토글 ──
-function paintToggle() {
-  const on = me.is_active;
-  const card = document.getElementById('toggle-card');
-  card.className = (on?'card-on':'card-off') + ' p-6 rounded-xl shadow cursor-pointer';
-  document.getElementById('toggle-state').textContent = on?'ON':'OFF';
-  document.getElementById('toggle-bulb').textContent = on?'💡':'🌙';
-}
-async function toggleActive() {
-  // MVP: 로컬 반영용 — 실제 토글 API는 서버에 추가 예정
-  me.is_active = !me.is_active;
-  paintToggle();
-  alert('표시 전환 (서버 동기화는 다음 버전)');
-}
-
-// ── 유틸 ──
-function v(id){ return document.getElementById(id).value.trim(); }
-function err(id,msg){ const el=document.getElementById(id); el.textContent=msg; el.classList.remove('hidden'); }
-
-// 시작: 토큰 있으면 자동 로그인
 if (token) {
   api('/auth/me').then(u => { me=u; enterDash(); }).catch(() => logout());
 }
