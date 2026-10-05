@@ -90,6 +90,7 @@
         <input id="login-password" type="password" placeholder="비밀번호" class="w-full border rounded-lg px-4 py-2">
         <p id="login-error" class="text-red-500 text-sm hidden"></p>
         <button onclick="doLogin()" class="w-full bg-orange-500 text-white py-3 rounded-lg font-bold">로그인</button>
+        <p class="text-xs text-gray-400 text-center">비밀번호를 잊으셨나요? 김비서(운영자)에게 말씀해주세요 — 초기화해드립니다</p>
       </div>
     </section>
 
@@ -117,6 +118,15 @@
         <div class="bg-white p-6 rounded-xl shadow">
           <h3 class="font-bold mb-3">🛡 인스타 인증 대기 목록</h3>
           <div id="admin-pending" class="space-y-2 text-sm"></div>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow">
+          <h3 class="font-bold mb-2">🔑 비밀번호 초기화</h3>
+          <div class="flex gap-2">
+            <input id="rp-username" placeholder="아이디" class="flex-1 border rounded-lg px-3 py-2 text-sm">
+            <input id="rp-newpw" placeholder="새 비밀번호" class="flex-1 border rounded-lg px-3 py-2 text-sm">
+            <button onclick="resetPw()" class="bg-gray-800 text-white px-4 rounded-lg text-sm">초기화</button>
+          </div>
+          <p id="rp-msg" class="text-sm mt-2"></p>
         </div>
       </div>
 
@@ -352,6 +362,13 @@ function showPhoto(src) {
 }
 function closePhoto() {
   document.getElementById('photo-viewer').classList.add('hidden');
+}
+async function resetPw() {
+  try {
+    const r = await api('/users/admin/reset-password','POST',
+      {username: v('rp-username'), new_password: v('rp-newpw')});
+    document.getElementById('rp-msg').textContent = '✅ ' + r.username + ' 비밀번호 초기화 완료';
+  } catch (e) { document.getElementById('rp-msg').textContent = e.detail || '실패'; }
 }
 function goLoginAfterVerify() { show('login'); document.getElementById('reg-code-box').classList.add('hidden'); document.getElementById('reg-form-box').classList.remove('hidden'); }
 function logout() {

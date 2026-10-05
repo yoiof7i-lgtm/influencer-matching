@@ -250,3 +250,18 @@ def upload_photo(payload: dict = None, current=Depends(_current_user)):
         raise
     except Exception:
         raise HTTPException(status_code=400, detail="업로드 실패 — 다른 이미지로 시도해주세요")
+
+@router.post("/admin/reset-password")
+def reset_password(payload: dict = None, current=Depends(_admin_user), db: Session = Depends(get_db)):
+    """관리자: 사용자 비밀번호 초기화 (사용자가 비번 잊었을 때)"""
+    from app.routers.auth import hash_password
+    username = (payload or {}).get("username", "").strip()
+    new_pw = (payload or {}).get("new_password", "")
+    u = db.query(models.User).filter(models.User.username == username).first()
+    if not u:
+        raise HTTPException(status_code=404, detail="해당 아이디가 없습니다")
+    if len(new_pw) < 4:
+        raise HTTPException(status_code=400, detail="비밀번호는 4자 이상으로")
+    u.password_hash = hash_password(new_pw)
+    db.commit()
+    return {"username": u.username, "reset": True}
