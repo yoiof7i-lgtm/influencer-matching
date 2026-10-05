@@ -243,6 +243,18 @@ async function api(path, method='GET', body=null, auth=true) {
   return data;
 }
 
+function paintToggle() {
+  const on = me.is_active;
+  const card = document.getElementById('toggle-card');
+  card.className = (on?'card-on':'card-off') + ' p-6 rounded-xl shadow cursor-pointer';
+  document.getElementById('toggle-state').textContent = on?'ON':'OFF';
+  document.getElementById('toggle-bulb').textContent = on?'💡':'🌙';
+}
+
+// ── 유틸 ──
+function v(id){ return document.getElementById(id).value.trim(); }
+function err(id,msg){ const el=document.getElementById(id); el.textContent=msg; el.classList.remove('hidden'); }
+
 // ── 회원가입 ──
 async function doRegister() {
   try {
