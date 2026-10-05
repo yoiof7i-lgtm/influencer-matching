@@ -47,23 +47,44 @@ def nearby_influencers(owner_id: int, db: Session = Depends(get_db)):
         .filter(models.User.role == "influencer", models.User.is_active == True)
         .all()
     )
-    # TODO: lat/lng 실거리(Haversine) 계산 적용 — 현재 점수순 정렬
-    infs.sort(key=lambda u: -u.influencer_score)
+    def haversine_km(lat1, lng1, lat2, lng2):
+        import math
+        if None in (lat1, lng1, lat2, lng2):
+            return None
+        R = 6371
+        p1, p2 = math.radians(lat1), math.radians(lat2)
+        dp = math.radians(lat2 - lat1)
+        dl = math.radians(lng2 - lng1)
+        a = math.sin(dp/2)**2 + math.cos(p1)*math.cos(p2)*math.sin(dl/2)**2
+        return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+
+    scored = []
+    for u in infs:
+        dist = haversine_km(owner.lat, owner.lng, u.lat, u.lng)
+        scored.append({"u": u, "dist": dist})
+    # 거리 알면 거리순(가까운 순), 모르면 점수순
+    if all(x["dist"] is not None for x in scored):
+        scored.sort(key=lambda x: x["dist"])
+    else:
+        scored.sort(key=lambda x: -x["u"].influencer_score)
     return [
         {
-            "id": u.id,
-            "name": u.name,
-            "instagram_handle": u.instagram_handle,
-            "influencer_score": u.influencer_score,
-            "region": u.region,
+            "id": x["u"].id,
+            "name": x["u"].name,
+            "instagram_handle": x["u"].instagram_handle,
+            "influencer_score": x["u"].influencer_score,
+            "region": x["u"].region,
+            "distance_km": round(x["dist"], 1) if x["dist"] is not None else None,
         }
-        for u in infs[:6]
+        for x in scored[:6]
     ]
 
 
 @router.post("/invite")
-def invite(owner_id: int, influencer_id: int, db: Session = Depends(get_db)):
-    """사장님 → 인플 초대 (사장님 최대 2명)"""
+def invite(owner_id: int, influencer_id: int,
+           offer_text: str = "", offer_menu: str = "",
+           db: Session = Depends(get_db)):
+    """사장님 → 인플 초대 (최대 2명, 협찬 내용 포함)"""
     pending = (
         db.query(models.Match)
         .filter(models.Match.owner_id == owner_id, models.Match.status == "pending")
@@ -71,7 +92,8 @@ def invite(owner_id: int, influencer_id: int, db: Session = Depends(get_db)):
     )
     if pending >= 2:
         raise HTTPException(status_code=400, detail="초대는 최대 2명까지 가능합니다")
-    m = models.Match(owner_id=owner_id, influencer_id=influencer_id, status="pending")
+    m = models.Match(owner_id=owner_id, influencer_id=influencer_id, status="pending",
+                     offer_text=offer_text, offer_menu=offer_menu)
     db.add(m)
     db.commit()
     db.refresh(m)
@@ -119,6 +141,8 @@ def my_invitations(current=Depends(_current_user), db: Session = Depends(get_db)
             "shop_name": owner.shop_name if owner else "",
             "region": owner.region if owner else "",
             "owner_score": owner.owner_score if owner else None,
+            "offer_text": m.offer_text or "",
+            "offer_menu": m.offer_menu or "",
             "created_at": str(m.created_at),
         })
     return out

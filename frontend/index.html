@@ -240,9 +240,11 @@ async function loadInvites() {
     list.forEach(inv => {
       const d = document.createElement('div');
       d.className = 'border rounded-lg p-3 mb-2 bg-yellow-50';
-      d.innerHTML = `<b>${inv.shop_name || inv.owner_name}</b> 사장님 (⭐ 업소점수 ${inv.owner_score ?? '-'})
-        <div class="text-xs text-gray-500">${inv.region || ''}</div>
-        <button onclick="acceptInvite(${inv.match_id})" class="mt-2 bg-orange-500 text-white px-4 py-1.5 rounded-lg text-sm">수락하기</button>`;
+      d.innerHTML = `<div class="font-bold">${inv.shop_name || inv.owner_name} <span class="text-xs text-gray-400">⭐${inv.owner_score ?? '-'}</span></div>
+        ${inv.region ? `<div class="text-xs text-gray-500">📍 ${inv.region}</div>` : ''}
+        ${inv.offer_menu ? `<div class="text-sm mt-1">🎁 협찬메뉴: <b>${inv.offer_menu}</b></div>` : ''}
+        ${inv.offer_text ? `<div class="text-xs text-gray-600 mt-1">${inv.offer_text}</div>` : ''}
+        <button onclick="acceptInvite(${inv.match_id})" class="mt-2 bg-orange-500 text-white px-4 py-1.5 rounded-lg text-sm font-semibold">✅ 지금 협찬 가능 — 수락</button>`;
       el.appendChild(d);
     });
   } catch (e) { document.getElementById('invite-in').textContent = '초대 로드 실패'; }
@@ -362,15 +364,20 @@ async function loadNearby() {
       <p class="font-semibold">${u.name}</p>
       <p class="text-xs text-gray-500">${u.instagram_handle||''} · ${u.region||''}</p>
       <p class="text-sm mt-1">⭐ ${u.influencer_score}/10</p>
-      <button onclick="invite(${u.id})" class="mt-2 bg-orange-500 text-white text-sm px-4 py-1.5 rounded-lg">초대</button>`;
+      <button onclick="invite(${u.id}, '${u.name}')" class="mt-2 bg-orange-500 text-white text-sm px-4 py-1.5 rounded-lg">📩 협찬초대</button>`;
     el.appendChild(d);
   });
 }
-async function invite(influId) {
+async function invite(influId, influName) {
+  const menu = prompt('[' + influName + '] 인플에게 제공할 협찬 메뉴\n(예: 브런치 2인 + 아메리카노 2잔)');
+  if (menu === null) return;
+  if (menu.trim() === '') { alert('협찬 메뉴를 입력해주세요'); return; }
+  const desc = prompt('가게 분위기/매력 (예: 애월 바다뷰 감성카페, 실내 촬영 좋음)') || '';
   try {
-    await api(`/users/invite?owner_id=${me.id}&influencer_id=${influId}`,'POST');
+    await api('/users/invite?owner_id=' + me.id + '&influencer_id=' + influId +
+      '&offer_text=' + encodeURIComponent(desc) + '&offer_menu=' + encodeURIComponent(menu), 'POST');
     alert('초대를 보냈습니다!');
-    loadNearby();
+    loadNearby(); loadMyInvites();
   } catch (e) { alert(e.detail||'초대 실패'); }
 }
 

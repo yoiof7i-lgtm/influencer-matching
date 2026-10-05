@@ -36,6 +36,8 @@ class Match(Base):
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     influencer_id = Column(Integer, ForeignKey("users.id"))  # 수락 전 NULL
     status = Column(String(20), default="pending")  # pending|accepted|expired|canceled
+    offer_text = Column(Text)                       # 협참 내용 (상품/인테리어/음식/음료 설명)
+    offer_menu = Column(String(200))                # 제공 메뉴 (예: 브런치 2인 + 아메리카노)
     visit_date = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
