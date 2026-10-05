@@ -498,8 +498,16 @@ async function submitInvite() {
   } catch (e) { err('im-error', e.detail || '발송 실패'); }
 }
 
+// 진단: 클릭 추적 (문제 파악용)
+document.addEventListener('click', function(e){
+  const t = e.target.closest('button,a');
+  if (t) console.log('[click]', (t.textContent||'').trim().slice(0,20));
+}, true);
+
 if (token) {
   api('/auth/me').then(u => { me=u; enterDash(); }).catch(() => logout());
+} else {
+  console.log('[init] 게스트 모드 시작');
 }
 </script>
 </body>
