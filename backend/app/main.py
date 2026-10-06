@@ -5,7 +5,17 @@ from app import models
 from app.database import engine
 from app.routers import auth, users, reviews
 
-models.Base.metadata.create_all(bind=engine)
+# DB 기동 대기: 연결 실패 시 최대 60초 재시도 (Docker 재시작 순서 문제 방지)
+import time as _time
+for _i in range(30):
+    try:
+        models.Base.metadata.create_all(bind=engine)
+        break
+    except Exception as _e:
+        if _i == 29:
+            raise
+        print(f"[startup] DB 대기 중... ({_i+1}/30)", flush=True)
+        _time.sleep(2)
 
 app = FastAPI(title="Influencer Matching API", version="0.1.0")
 
