@@ -265,3 +265,48 @@ def reset_password(payload: dict = None, current=Depends(_admin_user), db: Sessi
     u.password_hash = hash_password(new_pw)
     db.commit()
     return {"username": u.username, "reset": True}
+
+
+@router.get("/admin/stats")
+def admin_stats(current=Depends(_admin_user), db: Session = Depends(get_db)):
+    """관리자: 서비스 현황 통계 (모집·매칭 진행 추적)"""
+    from datetime import datetime, timedelta, timezone as _tz
+    KST = _tz(timedelta(hours=9))
+    now = datetime.now(KST)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    week_ago = now - timedelta(days=7)
+
+    users = db.query(models.User).all()
+    matches = db.query(models.Match).all()
+
+    infs = [u for u in users if u.role == "influencer"]
+    owners = [u for u in users if u.role == "owner"]
+    on_infs = [u for u in infs if u.is_active]
+    verified = [u for u in infs if u.ig_verified]
+    pending_verify = [u for u in infs if not u.ig_verified]
+
+    acc = [m for m in matches if m.status == "accepted"]
+    done = [m for m in matches if m.status == "visit_done"]
+    pend = [m for m in matches if m.status == "pending"]
+
+    new_users_today = len([u for u in users
+        if u.created_at and u.created_at.astimezone(KST) >= today_start])
+    new_users_week = len([u for u in users
+        if u.created_at and u.created_at.astimezone(KST) >= week_ago])
+    matched_week = len([m for m in matches
+        if m.status in ("accepted","visit_done") and m.created_at
+        and m.created_at.astimezone(KST) >= week_ago])
+
+    # 매칭 전환율: 초대(pending 포함) 중 성사 비율
+    total_invites = len(matches)
+    conversion = round(len(acc + done) / total_invites * 100, 1) if total_invites else 0.0
+
+    return {
+        "인플루언서": {"전체": len(infs), "협찬ON": len(on_infs),
+                      "인증완료": len(verified), "인증대기": len(pending_verify)},
+        "사장님": {"전체": len(owners)},
+        "매칭": {"대기중": len(pend), "수락": len(acc), "방문완료": len(done)},
+        "신규가입": {"오늘": new_users_today, "이번주": new_users_week},
+        "이번주매칭": matched_week,
+        "초대전환율%": conversion,
+    }

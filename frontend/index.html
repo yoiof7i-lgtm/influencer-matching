@@ -119,6 +119,14 @@
       <!-- 관리자 전용 -->
       <div id="admin-panel" class="hidden space-y-4">
         <div class="bg-white p-6 rounded-xl shadow">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold">📊 서비스 현황</h3>
+            <button onclick="loadStats()" class="text-xs text-gray-400 hover:text-gray-600">🔄 새로고침</button>
+          </div>
+          <div id="stats-grid" class="grid grid-cols-2 gap-3 text-sm"></div>
+          <p class="text-xs text-gray-400 mt-3">모집 목표: 인플 30명 · 사장 10곳 · 첫 매칭 성사</p>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow">
           <h3 class="font-bold mb-3">🛡 인스타 인증 대기 목록</h3>
           <div id="admin-pending" class="space-y-2 text-sm"></div>
         </div>
@@ -367,6 +375,29 @@ async function loadMyInvites() {
     });
   } catch (e) { document.getElementById('invite-list').textContent = '로드 실패'; }
 }
+async function loadStats() {
+  try {
+    const st = await api('/users/admin/stats');
+    const g = document.getElementById('stats-grid');
+    const box = (title, val, color) =>
+      `<div class="border rounded-lg p-3"><p class="text-gray-500 text-xs">${title}</p>
+       <p class="text-xl font-bold ${color}">${val}</p></div>`;
+    g.innerHTML =
+      box('인플루언서 전체', st['인플루언서']['전체'], 'text-orange-600') +
+      box('사장님 (모집목표10)', st['사장님']['전체'], 'text-blue-600') +
+      box('협찬ON 인플', st['인플루언서']['협찬ON'], 'text-green-600') +
+      box('오늘 신규가입', st['신규가입']['오늘'], 'text-orange-600') +
+      box('대기중 초대', st['매칭']['대기중'], 'text-yellow-600') +
+      box('수락된 매칭', st['매칭']['수락'], 'text-green-600') +
+      box('방문 완료', st['매칭']['방문완료'], 'text-gray-700') +
+      box('초대 전환율', st['초대전환율%']+'%', 'text-blue-600') +
+      box('인증대기 (승인필요)', st['인플루언서']['인증대기'], 'text-red-500') +
+      box('이번주 신규가입', st['신규가입']['이번주'], 'text-gray-700');
+  } catch (e) {
+    document.getElementById('stats-grid').innerHTML =
+      '<p class="text-red-500 text-sm col-span-2">통계 로드 실패</p>';
+  }
+}
 async function loadPending() {
   const list = await api('/users/admin/pending');
   const el = document.getElementById('admin-pending');
@@ -435,7 +466,7 @@ async function enterDash() {
   show('dash');
   if (me.role==='admin') {
     document.getElementById('admin-panel').classList.remove('hidden');
-    loadPending();
+    loadPending(); loadStats();
   } else if (me.role==='owner') {
     document.getElementById('owner-panel').classList.remove('hidden');
     loadNearby();
