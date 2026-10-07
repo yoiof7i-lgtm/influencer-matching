@@ -42,9 +42,11 @@ def nearby_influencers(owner_id: int, db: Session = Depends(get_db)):
     if not owner or owner.role != "owner":
         raise HTTPException(status_code=404, detail="사장님 계정이 아닙니다")
 
+    # 인플자격(정회원) + 인증완료 계정만 노출 — 실존 미확인 계정은 숨김
     infs = (
         db.query(models.User)
-        .filter(models.User.role == "influencer", models.User.is_active == True)
+        .filter(models.User.role == "influencer", models.User.is_active == True,
+                models.User.grade == "regular", models.User.ig_verified == True)
         .all()
     )
     def haversine_km(lat1, lng1, lat2, lng2):
@@ -193,6 +195,7 @@ def pending_verification(current=Depends(_admin_user), db: Session = Depends(get
             "username": u.username,
             "instagram_handle": u.instagram_handle,
             "ig_verify_code": u.ig_verify_code,
+            "grade": u.grade,
         }
         for u in infs
     ]
@@ -310,3 +313,19 @@ def admin_stats(current=Depends(_admin_user), db: Session = Depends(get_db)):
         "이번주매칭": matched_week,
         "초대전환율%": conversion,
     }
+
+
+@router.post("/admin/promote/{user_id}")
+def promote_regular(user_id: int, current=Depends(_admin_user), db: Session = Depends(get_db)):
+    """관리자: 준회원 → 정회원 승격 (인플자격 확정)
+    나중에 팔로워수 기준 자동화 예정: 예) 팔로워 1,000+ = 자동 정회원"""
+    u = db.query(models.User).get(user_id)
+    if not u:
+        raise HTTPException(status_code=404, detail="사용자 없음")
+    if u.role != "influencer":
+        raise HTTPException(status_code=400, detail="인플루언서만 승격 가능")
+    u.grade = "regular"
+    if not u.ig_verified:
+        u.ig_verified = True  # 승격 = 인플자격 확인됨
+    db.commit()
+    return {"id": u.id, "username": u.username, "grade": "regular"}

@@ -18,6 +18,7 @@ class User(Base):
     business_number = Column(String(20))            # 사장님: 사업자등록번호
     ig_verified = Column(Boolean, default=False)    # 인스타 본인인증 완료 여부
     ig_verify_code = Column(String(12))             # 프로필에 넣을 인증 코드
+    grade = Column(String(20), default="associate") # 회원등급: associate(준회원)|regular(정회원)
     region = Column(String(50))                     # 위치기반 지역
     lat = Column(Float)
     lng = Column(Float)

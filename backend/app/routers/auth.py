@@ -106,13 +106,14 @@ def register(data: schemas.UserCreate, db: Session = Depends(get_db)):
             raise HTTPException(status_code=400,
                 detail="이미 등록된 사업자번호입니다 (다른 계정으로 가입 불가)")
 
-    # 인플루언서: 인스타 활성화 확인 (자동검증 → 실패 시 수동승인 큐)
+    # 인플루언서: 인스타 실존 계정 확인 (없으면 가입 거부)
     if data.role == "influencer":
         if not data.instagram_active:
             raise HTTPException(status_code=400, detail="인스타그램 활성화 계정만 가입 가능합니다")
         ig = check_instagram(data.instagram_handle or "")
         if not ig["valid"]:
             raise HTTPException(status_code=400, detail=ig["reason"])
+        # 실존 확인 실패(자동판별 불가)면 관리자 승인 전까지 준회원
         # DB에는 정규화된 handle만 저장 (URL이 들어와도 handle만 추출)
         import re as _re
         _m = _re.search(r"(?:instagram\.com|instagr\.am)/([A-Za-z0-9._]+)",
@@ -137,6 +138,7 @@ def register(data: schemas.UserCreate, db: Session = Depends(get_db)):
         username=data.username,
         password_hash=hash_password(data.password),  # PBKDF2-SHA256 해시 저장
         role=data.role,
+        grade="regular" if data.role == "admin" else "associate",
         name=data.name,
         instagram_handle=data.instagram_handle,
         instagram_active=data.instagram_active,
@@ -188,7 +190,9 @@ def verify_instagram(current: models.User = Depends(get_current_user),
     r = verify_profile_code(current.instagram_handle, current.ig_verify_code or "")
     if r.get("verified"):
         current.ig_verified = True
+        # 등급 결정: 관리자 승인(regular 승격) 전까지는 준회원 유지
+        # (정회원 승격은 관리자 화면에서 — 나중에 팔로워수 기준 자동화 예정)
         db.add(current)
         db.commit()
-        return {"verified": True, "reason": r["reason"]}
+        return {"verified": True, "grade": current.grade, "reason": r["reason"]}
     return r

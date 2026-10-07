@@ -43,12 +43,18 @@ def check_instagram(handle: str) -> dict:
         resp = urllib.request.urlopen(req, timeout=15)
         body = resp.read(1500000).decode("utf-8", errors="ignore")
         low = body.lower()
+        # 팔로워 수 추출 (og:description: "N Followers, M Following, K Posts")
+        import re as _re
+        m_fol = _re.search(r'([\d,]+)\s*Followers', body)
+        followers = int(m_fol.group(1).replace(",", "")) if m_fol else None
         # 계정 존재 마커: @handle / HTML엔티티 &#064;handle / 유니코드 ＠handle
         for marker in (f"@{handle.lower()}", f"&#064;{handle.lower()}",
                        f"＠{handle.lower()}"):
             if marker in low:
                 return {"valid": True, "verified": True,
-                        "reason": f"@{handle} 활성 계정 확인"}
+                        "followers": followers,
+                        "reason": f"@{handle} 실존 계정 확인"
+                                  + (f" (팔로워 {followers:,})" if followers else "")}
         # HTML 분석 실패 = 로그인 벽 → 자동판별 불가, 수동확인으로 통과
         return {"valid": True, "verified": False,
                 "reason": "자동확인 불가 — 운영자 확인 후 승인 예정"}

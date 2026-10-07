@@ -405,15 +405,22 @@ async function loadPending() {
   list.forEach(u => {
     const d = document.createElement('div');
     d.className = 'border rounded-lg p-3 flex items-center justify-between gap-2';
-    d.innerHTML = `<div><b>${u.name}</b> (${u.username})<br>
+    const gradeBadge = u.grade==='regular' ? '<span class="text-xs bg-green-100 text-green-700 px-2 rounded-full">정회원</span>'
+                       : '<span class="text-xs bg-gray-100 text-gray-500 px-2 rounded-full">준회원</span>';
+    d.innerHTML = `<div><b>${u.name}</b> (${u.username}) ${gradeBadge}<br>
       <a href="https://www.instagram.com/${u.instagram_handle}/" target="_blank" class="text-blue-600">@${u.instagram_handle}</a>
       <span class="text-gray-400">코드: ${u.ig_verify_code}</span></div>
       <div class="flex gap-2">
-        <button onclick="approve(${u.id})" class="bg-green-500 text-white px-3 py-1 rounded">승인</button>
+        <button onclick="promote(${u.id})" class="bg-blue-600 text-white px-3 py-1 rounded">⭐ 정회원 승격</button>
+        <button onclick="approve(${u.id})" class="bg-green-500 text-white px-3 py-1 rounded">인증승인</button>
         <button onclick="reject(${u.id})" class="bg-red-500 text-white px-3 py-1 rounded">재인증</button>
       </div>`;
     el.appendChild(d);
   });
+}
+async function promote(id) {
+  await api(`/users/admin/promote/${id}`,'POST');
+  loadPending(); loadStats();
 }
 async function approve(id) {
   await api(`/users/admin/approve/${id}`,'POST');

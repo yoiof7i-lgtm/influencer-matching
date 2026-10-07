@@ -28,6 +28,7 @@ class UserOut(BaseModel):
     is_active: bool
     ig_verified: Optional[bool] = None
     ig_verify_code: Optional[str] = None
+    grade: Optional[str] = None
 
     class Config:
         from_attributes = True
