@@ -131,6 +131,13 @@
           <div id="admin-pending" class="space-y-2 text-sm"></div>
         </div>
         <div class="bg-white p-6 rounded-xl shadow">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold">🏅 인플 자격 평가 (70점 이상 = 정회원)</h3>
+            <button onclick="loadQuality()" class="text-xs text-gray-400 hover:text-gray-600">🔄</button>
+          </div>
+          <div id="quality-list" class="space-y-3 text-sm"></div>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow">
           <h3 class="font-bold mb-2">🔑 비밀번호 초기화</h3>
           <div class="flex gap-2">
             <input id="rp-username" placeholder="아이디" class="flex-1 border rounded-lg px-3 py-2 text-sm">
@@ -398,6 +405,46 @@ async function loadStats() {
       '<p class="text-red-500 text-sm col-span-2">통계 로드 실패</p>';
   }
 }
+async function loadQuality() {
+  try {
+    const list = await api('/users/admin/quality');
+    const el = document.getElementById('quality-list');
+    el.innerHTML = list.length ? '' : '<p class="text-gray-400">인플이 없습니다</p>';
+    list.forEach(u => {
+      const badge = u.grade==='regular' ? '<span class="text-xs bg-green-100 text-green-700 px-2 rounded-full">정회원</span>'
+                    : '<span class="text-xs bg-gray-100 text-gray-500 px-2 rounded-full">준회원</span>';
+      const color = u.total_score>=70 ? 'text-green-600' : u.total_score>=40 ? 'text-yellow-600' : 'text-red-500';
+      d = document.createElement('div');
+      d.className = 'border rounded-lg p-3';
+      d.innerHTML = `<div class="flex items-center justify-between">
+        <div><b>${u.name}</b> (${u.username}) ${badge}<br>
+          <a href="https://www.instagram.com/${u.instagram_handle}/" target="_blank" class="text-blue-600 text-xs">@${u.instagram_handle}</a></div>
+        <div class="text-right"><p class="text-2xl font-bold ${color}">${u.total_score}점</p>
+          <p class="text-xs ${u.eligible?'text-green-600':'text-gray-400'}">${u.eligible?'자격 있음':'자격 미달'}</p></div>
+      </div>
+      <div class="grid grid-cols-3 gap-2 mt-2">
+        <label class="text-xs">팔로워<input id="qf-${u.id}" type="number" value="${u.followers??0}" class="w-full border rounded px-2 py-1 text-xs"></label>
+        <label class="text-xs">반응률%<input id="qe-${u.id}" type="number" step="0.1" value="${u.engagement??0}" class="w-full border rounded px-2 py-1 text-xs"></label>
+        <label class="text-xs">피드(0~30)<input id="qd-${u.id}" type="number" value="${u.feed_score??0}" class="w-full border rounded px-2 py-1 text-xs"></label>
+      </div>
+      <p class="text-xs text-gray-400 mt-1">체크리스트: 활성계정(필수) · 팔로워1,000+(30점) · 피드9~12개 맛집/카페/일상 정돈(30점) · 반응률3%+(40점)</p>
+      <button onclick="saveQuality(${u.id})" class="mt-2 bg-gray-800 text-white px-4 py-1.5 rounded text-xs">점수 저장 (70점↑ 자동승격)</button>`;
+      el.appendChild(d);
+    });
+  } catch (e) { document.getElementById('quality-list').innerHTML = '<p class="text-red-500">로드 실패</p>'; }
+}
+async function saveQuality(id) {
+  try {
+    const r = await api('/users/admin/quality/' + id, 'POST', {
+      followers: document.getElementById('qf-'+id).value,
+      engagement: document.getElementById('qe-'+id).value,
+      feed: document.getElementById('qd-'+id).value,
+      auto_promote: true,
+    });
+    alert('저장 완료: ' + r.score + '점 — 등급: ' + (r.grade==='regular'?'정회원':'준회원'));
+    loadQuality();
+  } catch (e) { alert(e.detail || '저장 실패'); }
+}
 async function loadPending() {
   const list = await api('/users/admin/pending');
   const el = document.getElementById('admin-pending');
@@ -420,7 +467,7 @@ async function loadPending() {
 }
 async function promote(id) {
   await api(`/users/admin/promote/${id}`,'POST');
-  loadPending(); loadStats();
+  loadPending(); loadStats(); loadQuality();
 }
 async function approve(id) {
   await api(`/users/admin/approve/${id}`,'POST');
@@ -473,7 +520,7 @@ async function enterDash() {
   show('dash');
   if (me.role==='admin') {
     document.getElementById('admin-panel').classList.remove('hidden');
-    loadPending(); loadStats();
+    loadPending(); loadStats(); loadQuality();
   } else if (me.role==='owner') {
     document.getElementById('owner-panel').classList.remove('hidden');
     loadNearby();

@@ -19,6 +19,10 @@ class User(Base):
     ig_verified = Column(Boolean, default=False)    # 인스타 본인인증 완료 여부
     ig_verify_code = Column(String(12))             # 프로필에 넣을 인증 코드
     grade = Column(String(20), default="associate") # 회원등급: associate(준회원)|regular(정회원)
+    q_followers = Column(Integer)                    # 팔로워 수
+    q_engagement = Column(Float)                     # 반응률 % (좋아요+댓글평균/팔로워)
+    q_feed = Column(Integer, default=0)              # 피드 정돈 점수 (관리자 평가 0~30)
+    q_score = Column(Integer, default=0)             # 자격 총점 0~100 (70 이상=정회원 자격)
     region = Column(String(50))                     # 위치기반 지역
     lat = Column(Float)
     lng = Column(Float)

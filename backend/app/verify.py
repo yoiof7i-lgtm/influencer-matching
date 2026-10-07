@@ -44,9 +44,10 @@ def check_instagram(handle: str) -> dict:
         body = resp.read(1500000).decode("utf-8", errors="ignore")
         low = body.lower()
         # 팔로워 수 추출 (og:description: "N Followers, M Following, K Posts")
+        # 영문/한글 모두 대응 ("팔로워", "팔로워 수")
         import re as _re
-        m_fol = _re.search(r'([\d,]+)\s*Followers', body)
-        followers = int(m_fol.group(1).replace(",", "")) if m_fol else None
+        m_fol = _re.search(r'([\d,.]+)\s*(?:Followers|팔로워)', body)
+        followers = int(m_fol.group(1).replace(",", "").replace(".", "")) if m_fol else None
         # 계정 존재 마커: @handle / HTML엔티티 &#064;handle / 유니코드 ＠handle
         for marker in (f"@{handle.lower()}", f"&#064;{handle.lower()}",
                        f"＠{handle.lower()}"):

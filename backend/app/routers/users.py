@@ -329,3 +329,67 @@ def promote_regular(user_id: int, current=Depends(_admin_user), db: Session = De
         u.ig_verified = True  # 승격 = 인플자격 확인됨
     db.commit()
     return {"id": u.id, "username": u.username, "grade": "regular"}
+
+
+def calc_quality(u) -> int:
+    """정회원 자격 점수 (0~100, 70 이상 = 자격)
+    1. 활성화 계정: 필수 (미활성=0점)
+    2. 팔로워 >= 1,000: 30점 (비례)
+    3. 피드 정돈(9~12개 맛집/카페/일상): 30점 (관리자 평가 q_feed)
+    4. 반응률 >= 3%: 40점 (비례: er/3*40)
+    """
+    if not u.instagram_active:
+        return 0
+    score = 0
+    # 팔로워 (30점)
+    if u.q_followers:
+        score += min(30, round(u.q_followers / 1000 * 30))
+    # 피드 정돈 (30점 — 관리자가 인스타 확인 후 입력)
+    score += (u.q_feed or 0)
+    # 반응률 (40점)
+    if u.q_engagement:
+        score += min(40, round(u.q_engagement / 3 * 40))
+    return score
+
+
+@router.get("/admin/quality")
+def quality_list(current=Depends(_admin_user), db: Session = Depends(get_db)):
+    """관리자: 인플 자격 평가 목록 (점수 자동 계산 표시)"""
+    infs = db.query(models.User).filter(models.User.role == "influencer").all()
+    out = []
+    for u in infs:
+        u.q_score = calc_quality(u)
+        db.commit()
+        out.append({
+            "id": u.id, "name": u.name, "username": u.username,
+            "instagram_handle": u.instagram_handle,
+            "grade": u.grade, "ig_verified": u.ig_verified,
+            "followers": u.q_followers,
+            "engagement": u.q_engagement,
+            "feed_score": u.q_feed,
+            "total_score": u.q_score,
+            "eligible": u.q_score >= 70,
+        })
+    return out
+
+
+@router.post("/admin/quality/{user_id}")
+def set_quality(user_id: int, payload: dict = None,
+                current=Depends(_admin_user), db: Session = Depends(get_db)):
+    """관리자: 자격 요소 입력/수정
+    followers(팔로워수), engagement(반응률%), feed(피드점수 0~30),
+    auto_promote=true면 70점 이상일 때 자동 정회원 승격"""
+    u = db.query(models.User).get(user_id)
+    if not u:
+        raise HTTPException(status_code=404, detail="사용자 없음")
+    d = payload or {}
+    if "followers" in d: u.q_followers = int(d["followers"] or 0)
+    if "engagement" in d: u.q_engagement = float(d["engagement"] or 0)
+    if "feed" in d: u.q_feed = int(d["feed"] or 0)
+    u.q_score = calc_quality(u)
+    auto = d.get("auto_promote", True)
+    if auto and u.q_score >= 70:
+        u.grade = "regular"
+    db.commit()
+    return {"id": u.id, "score": u.q_score, "grade": u.grade,
+            "eligible": u.q_score >= 70}
