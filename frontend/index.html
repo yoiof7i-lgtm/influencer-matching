@@ -206,6 +206,30 @@
     </div>
   </div>
 
+  <!-- 평가 체크리스트 모달 -->
+  <div id="review-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+      <h3 class="text-lg font-bold mb-1">⭐ 상호 평가</h3>
+      <p class="text-xs text-gray-400 mb-3">10개 항목을 평가해주세요 — 항목당 +0.2 ~ -0.2</p>
+      <div id="review-items" class="space-y-2"></div>
+      <div id="review-photo-box" class="hidden mt-4">
+        <label class="text-sm font-semibold block mb-1">포스팅 결과</label>
+        <input id="review-link" placeholder="인스타 게시물 링크" class="w-full border rounded-lg px-3 py-2 mb-2">
+        <select id="review-posting" class="w-full border rounded-lg px-3 py-2 text-sm">
+          <option value="충족">조건 충족 제출 (+0.2)</option>
+          <option value="지연">지연 제출 (+0.1)</option>
+          <option value="미제출">미제출 (0)</option>
+          <option value="위반">조건 위반 (-0.1)</option>
+        </select>
+      </div>
+      <p id="review-error" class="text-red-500 text-sm hidden my-2"></p>
+      <div class="flex gap-2 mt-4">
+        <button onclick="closeReviewModal()" class="flex-1 border rounded-lg py-2.5 text-gray-600">취소</button>
+        <button onclick="submitReview()" class="flex-1 bg-orange-500 text-white rounded-lg py-2.5 font-bold">평가 제출</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 사진 크게 보기 -->
   <div id="photo-viewer" class="hidden fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-4" onclick="closePhoto()">
     <img id="photo-viewer-img" class="max-w-full max-h-full object-contain rounded-lg">
@@ -350,8 +374,24 @@ async function acceptInvite(matchId) {
     alert('수락 완료! 가게 방문 일정을 잡아주세요 🎉');
     me.is_active = false;
     paintToggle();
-    loadInvites();
+    loadInvites(); loadMyMatches();
   } catch (e) { alert(e.detail || '수락 실패'); }
+}
+async function loadMyMatches() {
+  try {
+    const list = await api('/users/my-matches');
+    const el = document.getElementById('match-list');
+    el.innerHTML = list.length ? '' : '진행 중 매칭이 없습니다';
+    list.forEach(m => {
+      const d = document.createElement('div');
+      d.className = 'border rounded-lg p-2 mb-1 text-sm flex items-center justify-between';
+      const label = m.status==='visit_done' ? '🎬 방문 완료' : '🍽 방문 예정';
+      const btn = m.status==='visit_done' && !m.reviewed
+        ? `<button onclick="openReview(${m.match_id},'influencer')" class="bg-orange-500 text-white px-3 py-1 rounded text-xs font-semibold">⭐ 평가하기</button>` : '';
+      d.innerHTML = `<span><b>${m.shop_name}</b> <span class="text-gray-400 text-xs">${label}</span></span>${btn}`;
+      el.appendChild(d);
+    });
+  } catch (e) { document.getElementById('match-list').textContent = '로드 실패'; }
 }
 async function doVerify() {
   try {
@@ -496,6 +536,58 @@ async function resetPw() {
     document.getElementById('rp-msg').textContent = '✅ ' + r.username + ' 비밀번호 초기화 완료';
   } catch (e) { document.getElementById('rp-msg').textContent = e.detail || '실패'; }
 }
+const ITEMS_INFL = ["맛","친절","인테리어","청결","접근성","가성비","사진스팟","협찬조건준수","대기속도","재방문의사"];
+const ITEMS_OWNER = ["예약준수","촬영태도","사진퀄리티","글정성","조건이행","태그정확성","팔로워반응","소통태도","노출성과","재협찬의사"];
+let reviewCtx = null; // {matchId, role}
+function openReview(matchId, role) {
+  reviewCtx = {matchId, role};
+  const items = role==='influencer' ? ITEMS_INFL : ITEMS_OWNER;
+  const el = document.getElementById('review-items');
+  el.innerHTML = '';
+  items.forEach((name, idx) => {
+    const d = document.createElement('div');
+    d.className = 'border rounded-lg p-2';
+    d.innerHTML = `<p class="text-sm font-semibold mb-1">${idx+1}. ${name}</p>
+      <div class="flex gap-1 text-xs" data-item="${idx+1}">
+        ${[0.2,0.1,0,-0.1,-0.2].map(v =>
+          `<button type="button" class="rv-btn flex-1 py-1 rounded border ${v>0?'bg-green-50':v<0?'bg-red-50':''}"
+            onclick="pickScore(this,${v})">${v>0?'+':''}${v}</button>`).join('')}
+      </div>`;
+    el.appendChild(d);
+  });
+  document.getElementById('review-photo-box').classList.toggle('hidden', role!=='owner');
+  document.getElementById('review-error').classList.add('hidden');
+  document.getElementById('review-modal').classList.remove('hidden');
+}
+function pickScore(btn, val) {
+  btn.parentElement.querySelectorAll('.rv-btn').forEach(b => b.classList.remove('bg-orange-500','text-white','border-orange-500'));
+  btn.classList.add('bg-orange-500','text-white','border-orange-500');
+  btn.dataset.val = val;
+}
+function closeReviewModal() {
+  document.getElementById('review-modal').classList.add('hidden');
+  reviewCtx = null;
+}
+async function submitReview() {
+  const items = {};
+  let cnt = 0;
+  document.querySelectorAll('#review-items [data-item]').forEach(g => {
+    const sel = g.querySelector('.rv-btn.bg-orange-500');
+    items[g.dataset.item] = sel ? parseFloat(sel.dataset.val) : 0;
+    if (sel) cnt++;
+  });
+  if (cnt < 10) { err('review-error', '10개 항목을 모두 평가해주세요'); return; }
+  try {
+    const body = {match_id: reviewCtx.matchId, reviewer_role: reviewCtx.role, items};
+    if (reviewCtx.role==='owner') {
+      body.posting = document.getElementById('review-posting').value;
+      body.photo_link = document.getElementById('review-link').value.trim() || null;
+    }
+    const r = await api('/reviews/', 'POST', body);
+    alert('평가 완료! 반영 점수: ' + r.applied_score + ' (' + r.scale + ')');
+    closeReviewModal();
+  } catch (e) { err('review-error', e.detail || '제출 실패'); }
+}
 function goLoginAfterVerify() { show('login'); document.getElementById('reg-code-box').classList.add('hidden'); document.getElementById('reg-form-box').classList.remove('hidden'); }
 function logout() {
   token = null; me = null;
@@ -532,7 +624,7 @@ async function enterDash() {
       document.getElementById('verify-card').classList.remove('hidden');
       document.getElementById('dash-code').textContent = me.ig_verify_code;
     }
-    loadInvites();
+    loadInvites(); loadMyMatches();
   }
 }
 

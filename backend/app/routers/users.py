@@ -393,3 +393,21 @@ def set_quality(user_id: int, payload: dict = None,
     db.commit()
     return {"id": u.id, "score": u.q_score, "grade": u.grade,
             "eligible": u.q_score >= 70}
+
+
+@router.get("/my-matches")
+def my_matches(current=Depends(_current_user), db: Session = Depends(get_db)):
+    """내 매칭 목록 (인플: accepted/visit_done 상태 + 평가 여부)"""
+    ms = db.query(models.Match).filter(
+        models.Match.influencer_id == current.id,
+        models.Match.status.in_(("accepted", "visit_done"))).all()
+    out = []
+    for m in ms:
+        owner = db.query(models.User).get(m.owner_id)
+        reviewed = db.query(models.Review).filter(
+            models.Review.match_id == m.id,
+            models.Review.reviewer_id == current.id).first()
+        out.append({"match_id": m.id, "status": m.status,
+                    "shop_name": owner.shop_name if owner else "?",
+                    "reviewed": bool(reviewed)})
+    return out

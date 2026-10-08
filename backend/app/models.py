@@ -56,7 +56,9 @@ class Review(Base):
     match_id = Column(Integer, ForeignKey("matches.id"), nullable=False)
     reviewer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     reviewee_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    score_delta = Column(Float, nullable=False)  # -0.2 ~ +0.2
+    score_delta = Column(Float, nullable=False)  # 총합 (10항목 합산, -2.0 ~ +2.0)
+    item_scores = Column(Text)                   # 10항목 점수 JSON {"1":0.2,"2":0.1,...}
+    posting_bonus = Column(Float, default=0)     # 포스팅 조건 점수 (+0.2/+0.1/0/-0.1)
     photo_link = Column(Text)                    # 후기 링크 (인플 제출)
     applied = Column(Boolean, default=False)     # 2주 일괄 반영 여부
     created_at = Column(DateTime(timezone=True), server_default=func.now())
