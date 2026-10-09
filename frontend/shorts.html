@@ -54,7 +54,7 @@ pre{white-space:pre-wrap;word-break:break-word;margin:6px 0;background:var(--bg)
 <span class="mu">STEP 2</span> 이 페이지에 업로드 → 타겟 연령·대본 구조 선택 → <b>[✨ 쇼츠 패키지 만들기]</b><br>
 <span class="mu">STEP 3</span> 생성 결과 확인:<br>
 &nbsp;&nbsp;· 🔍 상품 분석 — 특징/장단점/타겟 확인<br>
-&nbsp;&nbsp;· 🎬 대본 3안 — 마음에 드는 안 선택 → 대본 전체 복사해서 TTS(음성합성)에 붙여넣기<br>
+&nbsp;&nbsp;· 🎬 대본 3안 — 마음에 드는 안 → [🎙 TTS 열기] 버튼 클릭 → TTS 사이트(타입캐스트 등)에 대본 붙여넣기 → 음성(mp3) 다운로드<br>
 &nbsp;&nbsp;· 🖼 사진·영상 프롬프트 — 아래 구글 플로우 사용<br>
 &nbsp;&nbsp;· ✏️ 제목·태그 — 게시물 업로드 때 사용<br>
 <span class="mu">STEP 4</span> <b>🖼 구글 플로우로 이동</b> 버튼 클릭 →<br>
@@ -198,7 +198,12 @@ function render(){
  $("tabs").innerHTML=S.map((s,i)=>`<button class="${i===cur?"on":""}" onclick="cur=${i};render()">${i+1}안 · ${esc(s.structure)}</button>`).join("");
  const sc=S[cur]||{beats:[]};
  const full=[sc.hook,...(sc.beats||[]).map(b=>b.narration),sc.cta].filter(Boolean).join("\n");
- $("script").innerHTML=`<h2>🎬 대본 ${C(full)}</h2><p><b>훅:</b> ${esc(sc.hook)}</p>`+
+ $("script").innerHTML=`<h2>🎬 대본 ${C(full)}</h2>
+ <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+  <button class="go" style="width:auto;padding:8px 14px;font-size:14px;margin:0;background:#7c3aed" onclick="window.open('https://typical.ai/ko','_blank')">🎙 TTS 열기 (타입캐스트)</button>
+  <span class="mu" style="align-self:center">→ 이 대본을 붙여넣으면 음성(mp3)이 나옵니다</span>
+ </div>
+ <p><b>훅:</b> ${esc(sc.hook)}</p>`+
   (sc.beats||[]).map((b,i)=>`<div class="beat"><b>${i+1}. ${esc(b.sec)}초</b> <span class="mu">🎥 ${esc(b.shot)}</span>
   <div>🗣 ${esc(b.narration)}</div><div class="mu">💬 자막: ${esc(b.caption)}</div></div>`).join("")+
   `<p><b>CTA:</b> ${esc(sc.cta)}</p>`;
