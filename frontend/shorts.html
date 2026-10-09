@@ -136,8 +136,10 @@ function onProviderChange(){
   $("keynote").textContent=isGemini?"키는 이 브라우저(localStorage)에만 저장되고 Google API로만 전송돼요.":"무료 모델 추천 — OpenRouter로 전송돼요. 유료 모델은 크레딧이 소진됩니다.";
 }
 
-$("key").value=ls.get("gkey");
-$("model").value=ls.get("gmodel")||"gemini-2.5-flash";
+// 마지막 사용 공급자까지 복원 (키·모델 포함)
+const _savedP=ls.get("provider")||"gemini";
+$("provider").value=_savedP;
+onProviderChange();
 const b64=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result.split(",")[1]);f.readAsDataURL(b)});
 $("go").onclick=async()=>{
  const txt=$("txt").value.trim(),key=$("key").value.trim(),provider=$("provider").value;
@@ -145,6 +147,7 @@ $("go").onclick=async()=>{
  if(!key){$("stat").innerHTML='<span class="err">API 키를 입력해 주세요.</span>';return}
  if(!imgs.length&&!txt){$("stat").innerHTML='<span class="err">스크린샷이나 상품 정보를 입력해 주세요.</span>';return}
  if(provider==="gemini"){ls.set("gkey",key);ls.set("gmodel",model)}else{ls.set("okey",key);ls.set("omodel",model)}
+ ls.set("provider",provider);
  $("go").disabled=true;$("stat").textContent="분석 중… (20~60초)";
  const prompt=RULES+`\n\n[타겟 연령] ${age}\n[선호 대본 구조] ${st==="AI 자동"?"상품에 맞게 자동 선택":st+" 구조를 1안으로"}\n[추가 메모] ${$("memo").value||"없음"}\n[상품 정보 텍스트] ${txt||"없음 (이미지 참고)"}`;
  try{
