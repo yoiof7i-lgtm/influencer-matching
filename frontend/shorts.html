@@ -44,6 +44,28 @@ pre{white-space:pre-wrap;word-break:break-word;margin:6px 0;background:var(--bg)
 <h1>🛍 쇼핑쇼츠 기획 메이커</h1>
 <p class="sub">상품 상세페이지 스크린샷을 올리면 분석 · 대본 3안 · 촬영안 · AI 영상 프롬프트 · 제목/태그를 한 번에 만들어요. (쿠팡·네이버·무신사·올리브영·알리 등 어떤 쇼핑몰이든 OK)</p>
 
+<div class="card" style="background:linear-gradient(135deg,#fff8f2,#fff)">
+<div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="var g=document.getElementById('guide');g.classList.toggle('hide')">
+<h2 style="margin:0">📖 사용 방법 (클릭해서 펼치기)</h2><span class="mu">▼</span>
+</div>
+<div id="guide" class="hide" style="margin-top:10px;font-size:14px;line-height:1.9">
+<b>전체 흐름 (쇼츠 완성까지 약 10분)</b><br>
+<span class="mu">STEP 1</span> 쇼핑몰 상품 상세페이지를 <b>스크린샷 1~3장</b>으로 저장 (상품명·가격·옵션이 보이게)<br>
+<span class="mu">STEP 2</span> 이 페이지에 업로드 → 타겟 연령·대본 구조 선택 → <b>[✨ 쇼츠 패키지 만들기]</b><br>
+<span class="mu">STEP 3</span> 생성 결과 확인:<br>
+&nbsp;&nbsp;· 🔍 상품 분석 — 특징/장단점/타겟 확인<br>
+&nbsp;&nbsp;· 🎬 대본 3안 — 마음에 드는 안 선택 → 대본 전체 복사해서 TTS(음성합성)에 붙여넣기<br>
+&nbsp;&nbsp;· 🖼 사진·영상 프롬프트 — 아래 구글 플로우 사용<br>
+&nbsp;&nbsp;· ✏️ 제목·태그 — 게시물 업로드 때 사용<br>
+<span class="mu">STEP 4</span> <b>🖼 구글 플로우로 이동</b> 버튼 클릭 →<br>
+&nbsp;&nbsp;① "사진 프롬프트 전체 복사" 버튼 누르고, 플로우에서 이미지 생성에 붙여넣기 (상품 스크린샷도 함께 첨부)<br>
+&nbsp;&nbsp;② 생성된 이미지 저장<br>
+&nbsp;&nbsp;③ "영상 프롬프트 전체 복사" 버튼 누르고, 플로우에서 비디오 생성(Veo)에 붙여넣기 → 저장된 이미지로 영상 생성<br>
+<span class="mu">STEP 5</span> 만든 영상 클립들 + TTS 음성 → 캡췬/인스타 릴스에서 합치기 → 제목·태그 붙여서 업로드!<br>
+<p class="mu">💡 팁: 대본 3안 중 1안만 골라 진행해도 되고, 사진 프롬프트는 상품 스크린샷과 함께 넣어야 상품이 정확히 나와요.</p>
+</div>
+</div>
+
 <div class="card">
 <div id="drop">📸 클릭해서 상품 스크린샷 선택 (최대 3장)<input id="file" type="file" accept="image/*" multiple class="hide"></div>
 <div id="thumbs"></div>
@@ -153,6 +175,13 @@ $("go").onclick=async()=>{
  }catch(e){$("stat").innerHTML='<span class="err">실패: '+esc(e.message||e)+'</span>'}
  $("go").disabled=false;
 };
+window.copyAll=function(kind){
+  const sc=(data.scripts||[])[cur]||{};
+  const beats=sc.beats||[];
+  const key=kind==="photo"?"photo_prompt":"video_prompt";
+  const out=beats.map((b,i)=>`[Beat ${i+1} — ${b.sec||""}s]\n${b[key]||""}`).join("\n\n");
+  cp(out);$("stat").textContent=kind==="photo"?"📸 사진 프롬프트 전체 복사 완료":"🎬 영상 프롬프트 전체 복사 완료";
+};
 function messages_model(){return ls.get("omodel")||"dots-studio/dots-3-note-preview:free"}
 
 function render(){
@@ -171,7 +200,12 @@ function render(){
   <div>🗣 ${esc(b.narration)}</div><div class="mu">💬 자막: ${esc(b.caption)}</div></div>`).join("")+
   `<p><b>CTA:</b> ${esc(sc.cta)}</p>`;
  $("c-pr").innerHTML=`<h2>🖼 사진·영상 프롬프트 <span class="mu">(${cur+1}안 기준)</span></h2>
- <p class="mu">① 사진 프롬프트 + 상품 스크린샷 → 이미지 생성 도구 ② 만든 이미지 + 영상 프롬프트 → Veo·Kling·Runway 등</p>`+
+ <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+  <button class="go" style="width:auto;padding:8px 14px;font-size:14px;margin:0" onclick="copyAll('photo')">📸 사진 프롬프트 전체 복사</button>
+  <button class="go" style="width:auto;padding:8px 14px;font-size:14px;margin:0;background:#1a73e8" onclick="copyAll('video')">🎬 영상 프롬프트 전체 복사</button>
+  <button class="go" style="width:auto;padding:8px 14px;font-size:14px;margin:0;background:#111" onclick="window.open('https://labs.google/fx/ko/tools/flow','_blank')">🚀 구글 플로우 열기</button>
+ </div>
+ <p class="mu">① 사진 프롬프트 전체 복사 → 구글 플로우에서 이미지 생성에 붙여넣기 (상품 스크린샷 함께 첨부) ② 만든 이미지로 영상 생성 — 영상 프롬프트 전체 복사 → Veo에 붙여넣기</p>`+
   (sc.beats||[]).map((b,i)=>`<div class="beat"><b>비트 ${i+1}</b>
   <div class="mu">📸 사진 ${C(b.photo_prompt)}</div><pre>${esc(b.photo_prompt)}</pre>
   <div class="mu">🎥 영상 ${C(b.video_prompt)}</div><pre>${esc(b.video_prompt)}</pre></div>`).join("");
