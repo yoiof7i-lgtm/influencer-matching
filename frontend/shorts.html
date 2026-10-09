@@ -13,11 +13,30 @@
   <div class="max-w-2xl mx-auto bg-white p-8 rounded-xl shadow-md">
     <h1 class="text-2xl font-bold mb-6 text-gray-800">🛍 쇼핑 쇼츠 AI 생성기</h1>
 
+    <!-- 공급자 선택 -->
+    <div class="mb-4">
+      <label class="block text-sm font-medium text-gray-700 mb-1">AI 공급자</label>
+      <select id="provider" onchange="onProviderChange()" class="w-full p-2 border rounded-md bg-white">
+        <option value="gemini">Gemini (Google) — 무료</option>
+        <option value="openrouter">OpenRouter — Gemini 막힐 때 대안</option>
+      </select>
+    </div>
+
     <!-- API 키 입력 -->
     <div class="mb-4">
-      <label class="block text-sm font-medium text-gray-700 mb-1">Gemini API Key</label>
+      <label class="block text-sm font-medium text-gray-700 mb-1" id="keyLabel">Gemini API Key</label>
       <input type="password" id="apiKey" placeholder="AIzaSy..." class="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none">
-      <p class="text-xs text-gray-400 mt-1">키는 이 화면에서만 사용되고 저장되지 않습니다</p>
+      <p class="text-xs text-gray-400 mt-1" id="keyHint">키는 이 화면에서만 사용되고 저장되지 않습니다</p>
+      <div id="or-model-box" class="hidden mt-2">
+        <label class="block text-sm font-medium text-gray-700 mb-1">모델 선택</label>
+        <select id="orModel" class="w-full p-2 border rounded-md bg-white">
+          <option value="google/gemini-2.0-flash-001">Gemini 2.0 Flash (빠름)</option>
+          <option value="google/gemini-2.5-flash">Gemini 2.5 Flash</option>
+          <option value="meta-llama/llama-3.2-11b-vision-instruct:free">Llama 3.2 Vision (무료)</option>
+          <option value="qwen/qwen2.5-vl-72b-instruct:free">Qwen 2.5 VL (무료)</option>
+        </select>
+        <p class="text-xs text-gray-400 mt-1">free 모델은 비용 0원</p>
+      </div>
     </div>
 
     <!-- 이미지 및 상품 설명 입력 -->
@@ -47,6 +66,13 @@
   </div>
 
   <script>
+    function onProviderChange() {
+      const p = document.getElementById('provider').value;
+      document.getElementById('keyLabel').textContent = p==='gemini' ? 'Gemini API Key' : 'OpenRouter API Key (sk-or-v1-...)';
+      document.getElementById('apiKey').placeholder = p==='gemini' ? 'AIzaSy...' : 'sk-or-v1-...';
+      document.getElementById('or-model-box').classList.toggle('hidden', p!=='openrouter');
+    }
+
     function convertBase64(file) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
