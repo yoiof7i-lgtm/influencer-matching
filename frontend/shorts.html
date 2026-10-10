@@ -146,10 +146,22 @@ function onProviderChange(){
   $("keynote").textContent=isGemini?"키는 이 브라우저(localStorage)에만 저장되고 Google API로만 전송돼요.":"무료 모델 추천 — OpenRouter로 전송돼요. 유료 모델은 크레딧이 소진됩니다.";
 }
 
-// 마지막 사용 공급자까지 복원 (키·모델 포함)
-const _savedP=ls.get("provider")||"gemini";
-$("provider").value=_savedP;
-onProviderChange();
+// 마지막 사용 공급자 복원 + 서버 키 자동 주입 (PC/핸드폰 공통)
+(async function initKeys(){
+  let gk=ls.get("gkey"), ok=ls.get("okey");
+  if(!gk||!ok){
+    try{
+      const cfg=await (await fetch("/config")).json();
+      if(!gk)gk=cfg.gemini_key||"";
+      if(!ok)ok=cfg.openrouter_key||"";
+    }catch(e){}
+  }
+  if(gk)ls.set("gkey",gk);
+  if(ok)ls.set("okey",ok);
+  const _savedP=ls.get("provider")||"gemini";
+  $("provider").value=_savedP;
+  onProviderChange();
+})();
 const b64=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result.split(",")[1]);f.readAsDataURL(b)});
 $("go").onclick=async()=>{
  const txt=$("txt").value.trim(),key=$("key").value.trim(),provider=$("provider").value;

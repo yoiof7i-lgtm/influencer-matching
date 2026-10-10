@@ -65,3 +65,13 @@ def root():
 @app.get("/health")
 def health():
     return {"status": "healthy"}
+
+
+@app.get("/config")
+def get_config():
+    """프론트용: 서버 env의 API 키 자동 주입 (개인서비스 전용 — 인터넷 공개 시 제거)"""
+    import os
+    return {
+        "gemini_key": os.getenv("GEMINI_API_KEY", ""),
+        "openrouter_key": os.getenv("OPENROUTER_API_KEY", ""),
+    }
