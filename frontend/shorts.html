@@ -106,17 +106,6 @@ const STS=["AI 자동","문제해결","기능유도","전후비교","솔직리�
 let age="전체",st="AI 자동",imgs=[],data=null,cur=0;
 const $=id=>document.getElementById(id);
 function chips(el,list,get,set){list.forEach(v=>{const b=document.createElement("button");b.textContent=v;b.onclick=()=>{set(v);[...el.children].forEach(c=>c.classList.toggle("on",c===b))};if(v===get())b.classList.add("on");el.appendChild(b)})}
-chips($("cat"),["쇼핑","호텔·숙소"],()=>CAT,v=>CAT=v);
-chips($("age"),AGES,()=>age,v=>age=v);chips($("st"),STS,()=>st,v=>st=v);
-$("drop").onclick=()=>$("file").click();
-function shrink(f){return new Promise(r=>{const i=new Image();i.onload=()=>{const s=Math.min(1,1400/Math.max(i.width,i.height)),c=document.createElement("canvas");c.width=i.width*s;c.height=i.height*s;c.getContext("2d").drawImage(i,0,0,c.width,c.height);c.toBlob(b=>r(b),"image/jpeg",.85)};i.src=URL.createObjectURL(f)})}
-$("file").onchange=async e=>{imgs=[];$("thumbs").innerHTML="";for(const f of [...e.target.files].slice(0,7)){const b=await shrink(f);imgs.push(b);const im=document.createElement("img");im.src=URL.createObjectURL(b);$("thumbs").appendChild(im)}};
-function esc(s){const d=document.createElement("div");d.textContent=s==null?"":String(s);return d.innerHTML}
-function cp(t){navigator.clipboard&&navigator.clipboard.writeText(t).catch(()=>{})}
-window.__c=[];
-window.cpi=i=>cp(window.__c[i]||"");
-function C(t){window.__c.push(t);return `<button class="cp" onclick="cpi(${window.__c.length-1})">복사</button>`}
-
 let CAT="쇼핑";
 const HOTEL_RULES=`너는 한국 호텔·숙소 홍보 숏폼 기획자다. 입력된 숙소 이미지/정보를 보고 쇼츠 제작 패키지를 만든다.
 절대 원칙: 1)팩트 기반 - 이미지/입력에 없는 정보(객실수, 조식 유무, 가격)는 지어내지 말고 "확인 필요"로 표기 2)광고티 제거 - "예약하세요" 금지, 시청자의 여행 갈망에서 시작 3)후킹 - 첫 문장 8단어 이내, 숙소명 금지, 0~3초 안에 "이런 숙소 있었어?" 시선 끌기 4)9:16, 비트당 4초, 한국어 구어체 5)단점/주의 1개 솔직히 (예: 조식 유무, 접근성) 6)낮은 압박 CTA ("궁금하신 분만 더보기 확인").
@@ -131,6 +120,17 @@ const SHOP_RULES=`너는 한국 쇼핑 숏폼 기획자다. 입력된 상품 이
 {"analysis":{"name":"","price":"","mall":"","features":[""],"pros":[""],"cons":[""],"target":"","angle":""},
 "scripts":[{"structure":"","hook":"","beats":[{"sec":"0-3","narration":"","caption":"","shot":"촬영 설명","photo_prompt":"English","video_prompt":"English"}],"cta":""}],
 "titles":["5개"],"tags":["15개 내외, # 없이"]}`;
+
+chips($("cat"),["쇼핑","호텔·숙소"],()=>CAT,v=>CAT=v);
+chips($("age"),AGES,()=>age,v=>age=v);chips($("st"),STS,()=>st,v=>st=v);
+$("drop").onclick=()=>$("file").click();
+function shrink(f){return new Promise(r=>{const i=new Image();i.onload=()=>{const s=Math.min(1,1400/Math.max(i.width,i.height)),c=document.createElement("canvas");c.width=i.width*s;c.height=i.height*s;c.getContext("2d").drawImage(i,0,0,c.width,c.height);c.toBlob(b=>r(b),"image/jpeg",.85)};i.src=URL.createObjectURL(f)})}
+$("file").onchange=async e=>{imgs=[];$("thumbs").innerHTML="";for(const f of [...e.target.files].slice(0,7)){const b=await shrink(f);imgs.push(b);const im=document.createElement("img");im.src=URL.createObjectURL(b);$("thumbs").appendChild(im)}};
+function esc(s){const d=document.createElement("div");d.textContent=s==null?"":String(s);return d.innerHTML}
+function cp(t){navigator.clipboard&&navigator.clipboard.writeText(t).catch(()=>{})}
+window.__c=[];
+window.cpi=i=>cp(window.__c[i]||"");
+function C(t){window.__c.push(t);return `<button class="cp" onclick="cpi(${window.__c.length-1})">복사</button>`}
 
 const ls={get:k=>{try{return localStorage.getItem(k)||""}catch(e){return ""}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
 
