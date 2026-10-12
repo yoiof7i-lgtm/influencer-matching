@@ -124,7 +124,7 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
                     # 서버→Gemini 사진첨부는 반복 타임아웃 실측 → 텍스트 전용만 사용
                     script_raw = _retry(lambda: _gemini_call(
                         f'"{h["name"]}" 호텔(평점{h["score"]}, {h["reviews"]}) 21초 숏폼 대본. '
-                        '수영장·자쿠지·루프탑·오션뷰·객실·욕실·조식 강조(있으면). '
+                        '사진 순서는 고정: 침대룸→침대룸(다른각도)→화장실→수영장/자쿠지→건물외관→전망→조식. 대본도 이 순서에 맞게. '
                         '훅+7비트(각3초)+CTA. 첫문장 8단어 이내·호텔명 금지·단점1개 솔직히. '
                         'JSON만: {"title":"","narrations":["7개, 각 12~20자"],"captions":["7개, 10자 이내"]}',
                         None))

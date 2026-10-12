@@ -442,7 +442,7 @@ canvas#renderCanvas { display: none; }
         } catch(e) {}
       }
       if (b64s.length >= 5) {
-        const parts = [{text: '호텔 사진들이다. 각 사진이 무엇인지 보고, 예약 전환을 높이는 순서로 7장 고르라. 필수 구성: 1번=전경/외관, 2번=객실(룸), 3번=욕실, 4번=조식(없으면 라운지), 5번=수영장/자쿠지(없으면 테라스), 6번=로비/편의시설, 7번=최고뷰. 각 분류가 중복되지 않게 서로 다른 사진. 응답은 JSON만: {"picks":[7개 인덱스,0부터],"types":[7개 분류명]}'}];
+        const parts = [{text: '호텔 사진들이다. 각 사진이 무엇인지 보고 아래 구성 그대로 7장을 순서대로 골라라 (주인님 지정 규칙, 변경 금지): [0]침대가 보이는 룸사진, [1]다른 각도의 침대 룸사진, [2]화장실, [3]수영장 또는 자쿠지, [4]건물 전체 외관, [5]전망 좋은 사진(뷰), [6]조식. 해당 사진이 없으면 가장 가까운 종류로 대체하되 순서는 유지. 응답은 JSON만: {"picks":[7개 인덱스,0부터],"types":[7개 분류명]}'}];
         b64s.forEach(b => parts.push({inline_data:{mime_type:'image/jpeg', data:b}}));
         const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent', {
           method:'POST',
