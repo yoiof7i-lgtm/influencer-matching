@@ -184,7 +184,14 @@ $("go").onclick=async()=>{
     method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":key},
     body:JSON.stringify({contents:[{role:"user",parts}],generationConfig:{responseMimeType:"application/json",temperature:0.8}})});
    const j=await res.json();
-   if(!res.ok)throw new Error(j.error&&j.error.message||("HTTP "+res.status));
+   if(!res.ok){
+    // 무료 한도 초과(429/quota) 시 안내 후 OpenRouter 키로 재시도 유도
+    const msg=j.error&&j.error.message||("HTTP "+res.status);
+    if(res.status===429||msg.includes("quota")){
+     throw new Error("Gemini 무료 한도 초과 — 공급자를 OpenRouter로 바꾸거나 유료 결제 후 재시도하세요");
+    }
+    throw new Error(msg);
+   }
    t=(j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||"").join("");
   }else{
    // OpenRouter: 이미지는 data URL 형태로 image_url 전달

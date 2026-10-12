@@ -367,18 +367,31 @@ canvas#renderCanvas { display: none; }
         addLog(`[⚡원클릭] ${p.title} 전 과정 시작 (약 1~2분)`);
         try {
           // 1단계: 대본 (프론트 Gemini — 안정 경로)
+          const Q = '호텔 "'+p.title+'" (평점'+p.rankLabel+') 21초 숏폼 대본. 수영장·자쿠지·루프탑·오션뷰 최우선 강조. 훅+7비트(각3초)+CTA. 첫문장 8단어 이내·호텔명 금지·단점1개 솔직히·낮은압박CTA. JSON만: {"title":"","narrations":["7개, 각 12~20자"],"captions":["7개, 10자 이내"]}';
+          let aiT = '';
           const aiRes = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent', {
             method:'POST',
             headers:{'Content-Type':'application/json','x-goog-api-key':$('key').value.trim()||AI_G},
-            body: JSON.stringify({
-              contents:[{role:'user',parts:[{text: '호텔 "'+p.title+'" (평점'+p.rankLabel+') 21초 숏폼 대본. 수영장·자쿠지·루프탑·오션뷰 최우선 강조. 훅+7비트(각3초)+CTA. 첫문장 8단어 이내·호텔명 금지·단점1개 솔직히·낮은압박CTA. JSON만: {"title":"","narrations":["7개, 각 12~20자"],"captions":["7개, 10자 이내"]}'}]}],
-              generationConfig:{responseMimeType:'application/json',temperature:0.8}
-            })
+            body: JSON.stringify({contents:[{role:'user',parts:[{text: Q}]}], generationConfig:{responseMimeType:'application/json',temperature:0.8}})
           });
           const aiJ = await aiRes.json();
-          if (!aiRes.ok) throw new Error(aiJ.error?.message || 'AI 오류');
-          const aiT = (aiJ.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('');
-          const m = aiT.match(/\{[\s\S]*\}/);
+          if (aiRes.ok) {
+            aiT = (aiJ.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('');
+          } else if (!(AI_O && (aiRes.status === 429 || (aiJ.error?.message||'').includes('quota')))) {
+            throw new Error(aiJ.error?.message || 'AI 오류');
+          }
+          if (!aiT && AI_O) {
+            addLog('[⚡원클릭] Gemini 무료한도 초과 → OpenRouter 자동 전환', 'warn');
+            const orRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+              method:'POST',
+              headers:{'Content-Type':'application/json','Authorization':'Bearer '+AI_O},
+              body: JSON.stringify({model:'dots-studio/dots-3-note-preview:free', messages:[{role:'user',content: Q}]})
+            });
+            const orJ = await orRes.json();
+            if (!orRes.ok) throw new Error(orJ.error?.message || ('OpenRouter '+orRes.status));
+            aiT = orJ.choices?.[0]?.message?.content || '';
+          }
+          const m = (aiT||'').match(/\{[\s\S]*\}/);
           if (!m) throw new Error('대본 파싱 실패');
           const sc = JSON.parse(m[0]);
           addLog(`[⚡원클릭] 대본 완성: "${sc.title}" → 영상 제작 시작…`);
@@ -799,9 +812,18 @@ canvas#renderCanvas { display: none; }
           body: JSON.stringify({contents:[{role:'user',parts:[{text: AI_RULE + '\n\n[상품 목록]\n' + list}]}], generationConfig:{responseMimeType:'application/json', temperature:0.8}})
         });
         const j = await res.json();
-        if (!res.ok) throw new Error(j.error?.message || ('HTTP '+res.status));
-        out = (j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join('');
-      } else if (AI_O) {
+        if (!res.ok) {
+          // 무료 한도 초과 → OpenRouter 자동 전환
+          if (AI_O && (res.status === 429 || (j.error?.message||'').includes('quota'))) {
+            addLog('[AI] Gemini 무료한도 초과 → OpenRouter 자동 전환', 'warn');
+          } else {
+            throw new Error(j.error?.message || ('HTTP '+res.status));
+          }
+        } else {
+          out = (j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join('');
+        }
+      }
+      if (!out && AI_O) {
         const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
           method:'POST',
           headers:{'Content-Type':'application/json','Authorization':'Bearer '+AI_O},
@@ -810,9 +832,8 @@ canvas#renderCanvas { display: none; }
         const j = await res.json();
         if (!res.ok) throw new Error(j.error?.message || ('HTTP '+res.status));
         out = j.choices?.[0]?.message?.content || '';
-      } else {
-        throw new Error('서버에 AI 키가 없습니다');
       }
+      if (!out) throw new Error('사용 가능한 AI 키가 없습니다 (Gemini 무료한도 초과 + OpenRouter 키 없음)');
       const m = out.replace(/```json|```/g,'').match(/\{[\s\S]*\}/);
       if (!m) throw new Error('JSON 파싱 실패');
       const data = JSON.parse(m[0]);
