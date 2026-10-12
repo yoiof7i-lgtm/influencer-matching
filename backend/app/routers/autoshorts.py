@@ -82,7 +82,7 @@ def _motion_clip(img_path, out_path, dur=3.0, caption=""):
     return out_path if os.path.exists(out_path) else None
 
 @router.get("/make")
-def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), script: str = Query(None)):
+def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), script: str = Query(None), photo_urls: str = Query(None)):
     """URL 하나 → 인기 1위 호텔 숏폼 MP4 (완전자동)"""
     try:
         import shutil
@@ -98,8 +98,11 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
 
         results = []
         for rank, h in enumerate(hotels):
-            # 2) 사진 7장 수집·다운로드
-            photos = hotel_photos(h["id"], limit=25)
+            # 2) 사진 7장 수집·다운로드 (프론트 AI 선별 순서 우선: 1전경 2객실 3욕실 4조식 5수영장 6기타 7뷰)
+            if photo_urls:
+                photos = [u for u in photo_urls.split("|") if u.startswith("http")][:7]
+            else:
+                photos = hotel_photos(h["id"], limit=25)
             if len(photos) < 7:
                 continue
             dl = []
@@ -118,12 +121,13 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
             script_raw = script if script else None
             if not script_raw:
                 try:
+                    # 서버→Gemini 사진첨부는 반복 타임아웃 실측 → 텍스트 전용만 사용
                     script_raw = _retry(lambda: _gemini_call(
-                        '호텔 사진이다. 21초 숏폼 대본을 만들어라. 구성: 훅+7비트(각3초)+CTA. '
-                        '우선규칙: 수영장·자쿠지·루프탑·오션뷰 사진이 있으면 반드시 포함하고 대본에서도 강조(예약하고 싶게). '
-                        '규칙: 첫문장 8단어 이내·제품명 금지·단점1개 솔직히·낮은압박CTA. '
-                        'JSON만 출력: {"title":"","narrations":["7개, 각 12~20자"],"captions":["7개"]}',
-                        b64s))
+                        f'"{h["name"]}" 호텔(평점{h["score"]}, {h["reviews"]}) 21초 숏폼 대본. '
+                        '수영장·자쿠지·루프탑·오션뷰·객실·욕실·조식 강조(있으면). '
+                        '훅+7비트(각3초)+CTA. 첫문장 8단어 이내·호텔명 금지·단점1개 솔직히. '
+                        'JSON만: {"title":"","narrations":["7개, 각 12~20자"],"captions":["7개, 10자 이내"]}',
+                        None))
                 except Exception:
                     # 사진 첨부 503 → 텍스트 전용 폴백
                     try:
@@ -153,10 +157,11 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
             voice_path = f"{WORK}/h{rank}_voice.mp3"
             has_voice = _tts(" ".join(narrations), voice_path)
 
-            # 5) 사진 모션 클립 7개 (자막 번인)
+            # 5) 사진 모션 클립 7개 (자막 번인 — captions 없으면 narration 사용, 자막 항상 표시)
             clips = []
             for i in range(7):
-                c = _motion_clip(dl[i], f"{WORK}/h{rank}_c{i}.mp4", 3.0, captions[i] if i < len(captions) else "")
+                cap = (captions[i] if i < len(captions) else "") or (narrations[i] if i < len(narrations) else "")
+                c = _motion_clip(dl[i], f"{WORK}/h{rank}_c{i}.mp4", 3.0, cap)
                 if c: clips.append(c)
             if len(clips) < 7:
                 continue
@@ -171,7 +176,7 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
             final = f"{WORK}/h{rank}_final.mp4"
             if has_voice:
                 subprocess.run(["ffmpeg", "-y", "-i", merged, "-i", voice_path,
-                                "-af", "apad", "-shortest", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", final],
+                                "-af", "apad,loudnorm=I=-16:TP=-1.5", "-shortest", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", final],
                                capture_output=True, timeout=120)
             else:
                 import shutil as _sh; _sh.copy(merged, final)

@@ -386,6 +386,7 @@ canvas#renderCanvas { display: none; }
 
           // 2단계: 서버 자동제작 (사진수집+TTS+합성)
           const params = new URLSearchParams({url: p.url, count: 1, script: JSON.stringify(sc)});
+          if (pickedUrls.length === 7) params.set('photo_urls', pickedUrls.join('|'));
           const mkRes = await fetch('/autoshorts/make?' + params.toString());
           const mkJ = await mkRes.json();
           if (!mkRes.ok || !mkJ.download) throw new Error(mkJ.detail || 'HTTP '+mkRes.status);
@@ -428,7 +429,7 @@ canvas#renderCanvas { display: none; }
         } catch(e) {}
       }
       if (b64s.length >= 5) {
-        const parts = [{text: '호텔 사진들이다. 예약하고 싶게 만드는 순서로 7장 고르라: 1전경 2객실 3욕실 4조식 5수영장/자쿠지 6라운지/기타 7최고뷰. 응답은 JSON만: {"picks":[인덱스7개,0부터]}'}];
+        const parts = [{text: '호텔 사진들이다. 각 사진이 무엇인지 보고, 예약 전환을 높이는 순서로 7장 고르라. 필수 구성: 1번=전경/외관, 2번=객실(룸), 3번=욕실, 4번=조식(없으면 라운지), 5번=수영장/자쿠지(없으면 테라스), 6번=로비/편의시설, 7번=최고뷰. 각 분류가 중복되지 않게 서로 다른 사진. 응답은 JSON만: {"picks":[7개 인덱스,0부터],"types":[7개 분류명]}'}];
         b64s.forEach(b => parts.push({inline_data:{mime_type:'image/jpeg', data:b}}));
         const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent', {
           method:'POST',
@@ -452,7 +453,9 @@ canvas#renderCanvas { display: none; }
     }
   }
 
+  let pickedUrls = [];  // AI 선별 원본 URL (원클릭 전달용)
   async function applyPhotos(urls) {
+    pickedUrls = urls.slice(0,7);
     const files = [];
     for (const u of urls) {
       try {
