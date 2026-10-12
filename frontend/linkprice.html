@@ -470,7 +470,7 @@ let CITY_CODES = {};
   async function autoPick7(photoUrls) {
     const cfgKey = AI_G;
     addLog(`[사진] ${photoUrls.length}장 수집 완료 → AI 선별 중…`);
-    if (!cfgKey) { await applyPhotos(photoUrls.slice(0,7)); return; }
+    if (!cfgKey) { await applyPhotos(photoUrls.slice(0,14)); return; }
     try {
       const dl = photoUrls.slice(0,10).map(u => new Promise((res) => {
         const im = new Image(); im.crossOrigin='anonymous';
@@ -499,21 +499,27 @@ let CITY_CODES = {};
         const m = t.match(/\{[\s\S]*\}/);
         if (m) {
           const picks = JSON.parse(m[0]).picks || [];
-          const sel = picks.map(i => okUrls[i]).filter(Boolean).slice(0,7);
-          if (sel.length === 7) { await applyPhotos(sel); return; }
+          let sel = [...new Set(picks)].map(i => okUrls[i]).filter(Boolean).slice(0,14);
+          // 부족분: 아직 안 고른 사진에서 순서대로 보충 (중복 금지)
+          for (const u of okUrls) {
+            if (sel.length >= 14) break;
+            if (!sel.includes(u)) sel.push(u);
+          }
+          if (sel.length === 14) { await applyPhotos(sel); return; }
         }
       }
       addLog('[사진] AI 선별 실패 → 상위 14장 사용', 'warn');
-      await applyPhotos(okUrls.slice(0,7).length ? okUrls.slice(0,7) : photoUrls.slice(0,7));
+      await applyPhotos(okUrls.slice(0,14).length ? okUrls.slice(0,14) : photoUrls.slice(0,14));
     } catch(e) {
       addLog('[사진 오류] ' + (e.message||e) + ' → 상위 14장 사용', 'warn');
-      await applyPhotos(photoUrls.slice(0,7));
+      await applyPhotos(photoUrls.slice(0,14));
     }
   }
 
   let pickedUrls = [];  // AI 선별 원본 URL (원클릭 전달용)
   async function applyPhotos(urls) {
-    pickedUrls = urls.slice(0,7);
+    urls = [...new Set(urls)];  // 중복 URL 제거 (같은 사진 방지)
+    pickedUrls = urls.slice(0,14);
     const files = [];
     for (const u of urls) {
       try {
