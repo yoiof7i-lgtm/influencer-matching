@@ -239,6 +239,34 @@ canvas#renderCanvas { display: none; }
 </div>
 
 <script>
+// ── 지역 선택 칩 (IIFE 밖 독립) ──
+let CITY_CODES = {};
+(async function loadCities(){
+  try{
+    const j = await (await fetch('/crawl/cities')).json();
+    const box = document.getElementById('cityChips');
+    if (!box) return;
+    box.innerHTML = j.cities.map(c => {
+      CITY_CODES[c.name] = c.code;
+      return '<button class="secondary" style="padding:8px 12px" data-city="'+c.name+'">'+c.name+'</button>';
+    }).join('');
+    box.querySelectorAll('[data-city]').forEach(b =>
+      b.addEventListener('click', () => {
+        const name = b.dataset.city;
+        const code = CITY_CODES[name];
+        const urlEl = document.getElementById('urls');
+        urlEl.value = 'https://kr.trip.com/hotels/list?city='+code+'&checkin=2026-10-20&checkout=2026-10-21';
+        const su = document.getElementById('statUrls');
+        if (su) su.textContent = 1;
+        // IIFE 내 addLog 접근 불가 → 로그 요소 직접 갱신
+        const logEl = document.getElementById('log');
+        if (logEl) logEl.innerHTML += '<div class="good">[지역] '+name+' 선택 (city='+code+') → [① 사이트 분석 시작] 누르세요</div>';
+        logEl.scrollTop = logEl.scrollHeight;
+      })
+    );
+  }catch(e){}
+})();
+
 (() => {
   const $ = id => document.getElementById(id);
   let products = [];
