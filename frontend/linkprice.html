@@ -315,6 +315,7 @@ canvas#renderCanvas { display: none; }
         </div>
         <div class="product-actions">
           <button class="primary" data-auto7="${p.id}">📷 사진 7장 자동선택</button>
+          <button class="primary" style="background:linear-gradient(135deg,#e85ba0,#a35bdf)" data-oneclick="${p.id}">⚡ 원클릭 숏폼</button>
           <button class="secondary" data-copy="${p.id}">카피 복사</button>
           <button class="quiet" data-open="${p.id}">상품 페이지 열기</button>
         </div>
@@ -354,6 +355,55 @@ canvas#renderCanvas { display: none; }
           addLog('[사진 오류] ' + (e.message || e), 'warn');
         }
         b.disabled = false; b.textContent = '📷 사진 7장 자동선택';
+      })
+    );
+
+    $('productList').querySelectorAll('[data-oneclick]').forEach(b =>
+      b.addEventListener('click', async () => {
+        const p = products.find(x => x.id === b.dataset.oneclick);
+        if (!p) return;
+        const hid = (p.url.match(/hotelId=(\d+)/) || [])[1];
+        b.disabled = true; b.textContent = '⏳ 대본 생성 중…';
+        addLog(`[⚡원클릭] ${p.title} 전 과정 시작 (약 1~2분)`);
+        try {
+          // 1단계: 대본 (프론트 Gemini — 안정 경로)
+          const aiRes = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent', {
+            method:'POST',
+            headers:{'Content-Type':'application/json','x-goog-api-key':$('key').value.trim()||AI_G},
+            body: JSON.stringify({
+              contents:[{role:'user',parts:[{text: '호텔 "'+p.title+'" (평점'+p.rankLabel+') 21초 숏폼 대본. 수영장·자쿠지·루프탑·오션뷰 최우선 강조. 훅+7비트(각3초)+CTA. 첫문장 8단어 이내·호텔명 금지·단점1개 솔직히·낮은압박CTA. JSON만: {"title":"","narrations":["7개, 각 12~20자"],"captions":["7개, 10자 이내"]}'}]}],
+              generationConfig:{responseMimeType:'application/json',temperature:0.8}
+            })
+          });
+          const aiJ = await aiRes.json();
+          if (!aiRes.ok) throw new Error(aiJ.error?.message || 'AI 오류');
+          const aiT = (aiJ.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('');
+          const m = aiT.match(/\{[\s\S]*\}/);
+          if (!m) throw new Error('대본 파싱 실패');
+          const sc = JSON.parse(m[0]);
+          addLog(`[⚡원클릭] 대본 완성: "${sc.title}" → 영상 제작 시작…`);
+          b.textContent = '🎬 영상 제작 중… (1~3분)';
+
+          // 2단계: 서버 자동제작 (사진수집+TTS+합성)
+          const params = new URLSearchParams({url: p.url, count: 1, script: JSON.stringify(sc)});
+          const mkRes = await fetch('/autoshorts/make?' + params.toString());
+          const mkJ = await mkRes.json();
+          if (!mkRes.ok || !mkJ.download) throw new Error(mkJ.detail || 'HTTP '+mkRes.status);
+
+          // 3단계: 다운로드
+          addLog(`[⚡원클릭] ✅ 완성! 자동 다운로드 시작`, 'good');
+          const a = document.createElement('a');
+          a.href = mkJ.download;
+          a.download = (sc.title || '숏폼') + '.mp4';
+          document.body.appendChild(a); a.click(); a.remove();
+          b.textContent = '✅ 완성!';
+          setStep(3, '원클릭 MP4 완성', true);
+          $('statVideos').textContent = '완료';
+        } catch(e) {
+          addLog('[⚡원클릭 오류] ' + (e.message || e), 'warn');
+          b.textContent = '⚡ 원클릭 숏폼';
+        }
+        b.disabled = false;
       })
     );
   }
