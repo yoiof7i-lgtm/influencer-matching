@@ -52,4 +52,13 @@ def hotel_photos(hotel_id: str, limit: int = 20):
     payload = _payload(html)
     imgs = list(dict.fromkeys(
         re.findall(r'(https://ak-d\.tripcdn\.com/images/[^"\\,\s\[\]]+?\.jpg)', payload)))
-    return imgs[:limit]
+    # 같은 사진이 크기만 다른 URL로 중복됨 (실측: 212 URL = 86 고유) → 이미지ID 기준 고유화
+    unique, seen = [], set()
+    for u in imgs:
+        m = re.search(r'/images/([0-9a-zA-Z]+?)_', u)
+        key = m.group(1) if m else u
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(u)
+    return unique[:limit]

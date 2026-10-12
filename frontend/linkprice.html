@@ -520,9 +520,11 @@ let CITY_CODES = {};
       addLog('[사진] AI 선별 실패 → 전체 수집분에서 14장 구성', 'warn');
       // okUrls(로드성공분) 우선 + 부족분은 전체 photoUrls에서 보충 (중복 제외)
       const base = [...okUrls];
+      const baseKeys = new Set(base.map(photoKey));
       for (const u of photoUrls) {
         if (base.length >= 14) break;
-        if (!base.includes(u)) base.push(u);
+        const k = photoKey(u);
+        if (!baseKeys.has(k)) { base.push(u); baseKeys.add(k); }
       }
       await applyPhotos(base.slice(0,14));
     } catch(e) {
@@ -532,8 +534,15 @@ let CITY_CODES = {};
   }
 
   let pickedUrls = [];  // AI 선별 원본 URL (원클릭 전달용)
+  function photoKey(u) {
+    // tripcdn: 같은 사진이 크기만 다른 URL로 존재 → 이미지ID로 판별
+    const m = String(u).match(/\/images\/([0-9a-zA-Z]+?)_/);
+    return m ? m[1] : String(u);
+  }
   async function applyPhotos(urls) {
-    urls = [...new Set(urls)];  // 중복 URL 제거 (같은 사진 방지)
+    // 같은 사진(동일 이미지ID) 중복 제거 — 크기만 다른 URL도 하나로
+    const seen = new Set();
+    urls = urls.filter(u => { const k = photoKey(u); if (seen.has(k)) return false; seen.add(k); return true; });
     pickedUrls = urls.slice(0,14);
     const files = [];
     for (const u of urls) {
