@@ -206,12 +206,18 @@ canvas#renderCanvas { display: none; }
         </div>
         <div class="actions">
           <button class="primary" id="copyBtn" disabled>② 카피 문구 생성</button>
+          <button class="primary" id="aiBtn" disabled>🤖 AI 대본 생성</button>
           <button class="secondary" id="jsonBtn" disabled>상품 JSON 내보내기</button>
           <button class="secondary" id="captionsBtn" disabled>카피 전체 내보내기</button>
         </div>
       </div>
     </section>
   </div>
+
+  <section class="panel results" id="aiPanel" style="display:none">
+    <div class="panel-head"><h3>🤖 AI 숏폼 대본</h3><span id="aiMeta"></span></div>
+    <div class="panel-body" id="aiBody"></div>
+  </section>
 
   <section class="panel results">
     <div class="panel-head"><h3>03 / 상품 및 숏폼 미리보기</h3><span id="resultCount">0개 상품</span></div>
@@ -600,6 +606,74 @@ canvas#renderCanvas { display: none; }
 
     download('shortform_captions.txt', text, 'text/plain;charset=utf-8');
     addLog('[내보내기] 카피 텍스트 다운로드를 시작했습니다.', 'good');
+  });
+
+  // ── AI 대본 (서버 키 자동주입) ──
+  let AI_G='', AI_O='';
+  (async () => {
+    try {
+      const cfg = await (await fetch('/config')).json();
+      AI_G = cfg.gemini_key || '';
+      AI_O = cfg.openrouter_key || '';
+      if (AI_G || AI_O) $('aiBtn').disabled = false;
+    } catch(e) {}
+  })();
+
+  const AI_RULE = '너는 한국 쇼핑 숏폼 기획자다. 아래 상품 목록을 보고 각 상품별 숏폼 대본을 만든다. 규칙: 1)후킹 첫 문장 8단어 이내, 제품명 금지 2)광고티 제거 3)단점 1개 솔직히 4)낮은 압박 CTA 5)9:16 비트당 4초(0-4,4-8..). 반드시 JSON만 출력: {"items":[{"title":"","scripts":[{"hook":"","beats":[{"sec":"0-4","narration":"","caption":""}],"cta":""}]}]}';
+
+  $('aiBtn').addEventListener('click', async () => {
+    if (!products.length) return;
+    const list = products.map(p => `- ${p.title} (${p.price})`).join('\n');
+    $('aiBtn').disabled = true;
+    addLog('[AI] 대본 생성 중… (20~60초)');
+    let out = '';
+    try {
+      if (AI_G) {
+        const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
+          method:'POST',
+          headers:{'Content-Type':'application/json','x-goog-api-key':AI_G},
+          body: JSON.stringify({contents:[{role:'user',parts:[{text: AI_RULE + '\n\n[상품 목록]\n' + list}]}], generationConfig:{responseMimeType:'application/json', temperature:0.8}})
+        });
+        const j = await res.json();
+        if (!res.ok) throw new Error(j.error?.message || ('HTTP '+res.status));
+        out = (j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join('');
+      } else if (AI_O) {
+        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':'Bearer '+AI_O},
+          body: JSON.stringify({model:'dots-studio/dots-3-note-preview:free', messages:[{role:'user',content: AI_RULE + '\n\n[상품 목록]\n' + list}]})
+        });
+        const j = await res.json();
+        if (!res.ok) throw new Error(j.error?.message || ('HTTP '+res.status));
+        out = j.choices?.[0]?.message?.content || '';
+      } else {
+        throw new Error('서버에 AI 키가 없습니다');
+      }
+      const m = out.replace(/```json|```/g,'').match(/\{[\s\S]*\}/);
+      if (!m) throw new Error('JSON 파싱 실패');
+      const data = JSON.parse(m[0]);
+      const items = data.items || [];
+      $('aiPanel').style.display = '';
+      $('aiMeta').textContent = items.length + '개 상품 · 3비트 대본';
+      $('aiBody').innerHTML = items.map(it =>
+        (it.scripts||[]).map((sc,si) => {
+          const full = [sc.hook, ...(sc.beats||[]).map(b=>b.narration), sc.cta].filter(Boolean).join('\n');
+          const cid = 'aic'+Math.random().toString(36).slice(2);
+          window[cid] = full;
+          return `<div style="border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px">
+            <b>${escapeHtml(it.title)} · ${si+1}안</b>
+            <button class="secondary" style="float:right" onclick="navigator.clipboard.writeText(window.${cid});addLog('[복사] 대본 복사 완료','good')">대본 복사</button>
+            <p style="margin:8px 0 0"><b>훅:</b> ${escapeHtml(sc.hook)}</p>
+            ${(sc.beats||[]).map((b,i)=>`<div style="margin:6px 0"><b>${i+1}. ${escapeHtml(b.sec)}초</b> 🗣 ${escapeHtml(b.narration)} <span style="color:var(--muted)">💬 ${escapeHtml(b.caption)}</span></div>`).join('')}
+            <p style="margin:8px 0 0"><b>CTA:</b> ${escapeHtml(sc.cta)}</p>
+          </div>`;
+        }).join('')
+      ).join('');
+      addLog('[AI] 대본 ' + items.length + '개 상품 생성 완료.', 'good');
+    } catch(e) {
+      addLog('[AI 오류] ' + (e.message || e), 'warn');
+    }
+    $('aiBtn').disabled = false;
   });
 
   renderProducts();
