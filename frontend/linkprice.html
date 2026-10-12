@@ -141,6 +141,9 @@ canvas#renderCanvas { display: none; }
     <section class="panel">
       <div class="panel-head"><h3>01 / 쇼핑 사이트 선택</h3><span>사이트 주소부터 시작</span></div>
       <div class="panel-body">
+        <label class="label">📍 지역 선택 (클릭하면 주소 자동 입력)</label>
+        <div id="cityChips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
+
         <label class="label" for="urls">분석할 사이트 주소 (trip.com 호텔 목록 페이지)</label>
         <input class="site-input" id="urls" value="https://kr.trip.com/" spellcheck="false" placeholder="https://kr.trip.com/">
 

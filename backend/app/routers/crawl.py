@@ -8,6 +8,24 @@ UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like 
 
 router = APIRouter(prefix="/crawl", tags=["crawl"])
 
+CITIES = [
+    {"name": "서울", "code": "274"},
+    {"name": "후쿠오카", "code": "248"},
+    {"name": "부산", "code": "253"},
+    {"name": "오사카", "code": "219"},
+    {"name": "도쿄", "code": "228"},
+    {"name": "상하이", "code": "2"},
+    {"name": "제주시", "code": "737"},
+    {"name": "제주도", "code": "737"},
+    {"name": "다낭", "code": "1356"},
+    {"name": "강릉", "code": "61325"},
+    {"name": "인천", "code": "410"},
+]
+
+@router.get("/cities")
+def cities():
+    return {"cities": CITIES}
+
 @router.get("/trip")
 def crawl_trip(city: str = Query("623"), count: int = Query(10, ge=1, le=20),
                checkin: str = "2026-10-20", checkout: str = "2026-10-21"):
