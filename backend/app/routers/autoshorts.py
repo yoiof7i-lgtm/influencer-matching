@@ -79,31 +79,82 @@ def _tts(text, path):
     except Exception:
         return False
 
-def _motion_clip(img_path, out_path, dur=2.5, caption=""):
-    """사진 1장 → 2.5초 줌+드리프트 클립 (9:16 1080x1920) + 자막 번인"""
+def _motion_clip(img_path, out_path, dur=2.5, caption="", idx=0, hook_title=""):
+    """사진 1장 → 2.5초 모션 클립 (9:16 1080x1920) — 모션 교차·색보정·자막 개선"""
+    D = int(dur * 30)
+    # 모션 교차 (지겨움 방지): 줌인 → 줌아웃 → 좌패닝 → 우패닝 순환
+    motions = [
+        f"zoompan=z='min(1.0+on/{D}*0.12,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={D}:s=1080x1920:fps=30",  # 줌인
+        f"zoompan=z='max(1.12-on/{D}*0.12,1.0)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={D}:s=1080x1920:fps=30",  # 줌아웃
+        f"zoompan=z=1.08:x='iw/2-(iw/zoom/2)+(iw/4)*(on/{D}-0.5)':y='ih/2-(ih/zoom/2)':d={D}:s=1080x1920:fps=30",    # 좌→우 패닝
+        f"zoompan=z=1.08:x='iw/2-(iw/zoom/2)-(iw/4)*(on/{D}-0.5)':y='ih/2-(ih/zoom/2)':d={D}:s=1080x1920:fps=30",    # 우→좌 패닝
+    ]
+    motion = motions[idx % 4]
     vf = (
         "scale=1080:1920:force_original_aspect_ratio=increase,"
         "crop=1080:1920,"
-        f"zoompan=z='min(zoom+0.0008,1.12)':d={int(dur*30)}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1080x1920:fps=30,"
+        f"{motion},"
+        # 색보정: 채도+약간, 대비 약간, 살짝 선명
+        "eq=saturation=1.15:contrast=1.06,"
+        "unsharp=5:5:0.5"
     )
+    # 폰트
+    font = ""
+    for cand in ["/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+                 "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+                 "/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc",
+                 "/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc"]:
+        if os.path.exists(cand):
+            font = cand
+            break
+    fontarg = f":fontfile={font}" if font else ""
+    def esc(t):
+        return t.replace(":", "\:").replace("'", "\\\'").replace("%", "\\%")
+    # 자막: 하단, 반투명 박스+테두리
     if caption:
-        safe = caption.replace(":", "\:").replace("'", "\\\'")
-        font = ""
-        for cand in ["/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-                     "/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc",
-                     "/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc"]:
-            if os.path.exists(cand):
-                font = cand
-                break
-        dt = f"drawtext=text='{safe}':fontcolor=white:fontsize=54:box=1:boxcolor=black@0.5:boxborderw=16:x=(w-tw)/2:y=h-220"
-        if font:
-            dt += f":fontfile={font}"
-        vf += dt
+        vf += (
+            f",drawtext=text='{esc(caption)}'{fontarg}"
+            ":fontcolor=white:fontsize=58:box=1:boxcolor=black@0.45:boxborderw=18"
+            ":x=(w-tw)/2:y=h-200:borderw=2:bordercolor=black@0.6"
+        )
+    # 훅 타이틀: 첫 장면(idx=0)에 상단 큰 제목
+    if hook_title:
+        vf += (
+            f",drawtext=text='{esc(hook_title)}'{fontarg}"
+            ":fontcolor=white:fontsize=64:box=1:boxcolor=black@0.55:boxborderw=22"
+            ":x=(w-tw)/2:y=h*0.12"
+        )
     subprocess.run(
         ["ffmpeg", "-y", "-loop", "1", "-i", img_path, "-t", str(dur),
-         "-vf", vf, "-an", "-c:v", "libx264", "-preset", "fast", out_path],
-        capture_output=True, timeout=120)
+         "-vf", vf, "-an", "-c:v", "libx264", "-preset", "slow",
+         "-crf", "18", "-pix_fmt", "yuv420p", out_path],
+        capture_output=True, timeout=180)
     return out_path if os.path.exists(out_path) else None
+
+def _bgm(path, dur):
+    """부드러운 배경음악 생성 (사인 코드 진행 — 저음 잔잔한 분위기)"""
+    # Am→F→C→G 진행 느낌: 주파수 교차 페이드 (단순 합성)
+    import math
+    try:
+        seg = dur / 4
+        fc = "aevalsrc="
+        tones = [(220.0, "A"), (174.6, "F"), (261.6, "C"), (196.0, "G")]
+        parts = []
+        for i, (f, _) in enumerate(tones):
+            parts.append(f"sine=frequency={f}:duration={seg+0.5}:sample_rate=44100")
+        # 각 부분을 연결 + 페이드
+        inputs = []
+        filters = []
+        for i, src in enumerate(parts):
+            inputs += ["-f", "lavfi", "-i", src]
+        # concat + 볼륨 낮게 + 페이드
+        n = len(parts)
+        fcm = f"concat=n={n}:v=0:a=1,volume=0.12,afade=t=in:d=2,afade=t=out:st={dur-2}:d=2"
+        subprocess.run(["ffmpeg", "-y", *inputs, "-filter_complex", fcm, "-t", str(dur), path],
+                       capture_output=True, timeout=60)
+        return os.path.exists(path)
+    except Exception:
+        return False
 
 @router.get("/make")
 def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), script: str = Query(None), photo_urls: str = Query(None)):
@@ -199,15 +250,38 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
             if len(clips) < 14:
                 continue
 
-            # 6) 합성
-            with open(f"{WORK}/list.txt", "w") as f:
-                for c in clips:
-                    f.write(f"file '{c}'\n")
+            # 6) 합성: 크로스페이드 전환 (0.4초)
             merged = f"{WORK}/h{rank}_merged.mp4"
-            subprocess.run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", f"{WORK}/list.txt",
-                            "-c:v", "libx264", "-preset", "fast", merged], capture_output=True, timeout=300)
+            if len(clips) > 1:
+                inputs = []
+                for c in clips:
+                    inputs += ["-i", c]
+                fc = ""
+                for i in range(len(clips) - 1):
+                    off = i * (2.5 - 0.4)
+                    fc += f"[{'0' if i==0 else f'v{i}'}][{i+1}:v]xfade=transition=fade:duration=0.4:offset={off}[v{i+1}];"
+                fc += f"[v{len(clips)-1}]format=yuv420p[vout]"
+                subprocess.run(["ffmpeg", "-y", *inputs, "-filter_complex", fc,
+                                "-map", "[vout]", "-c:v", "libx264", "-preset", "medium", "-crf", "19",
+                                merged], capture_output=True, timeout=420)
+            else:
+                subprocess.run(["ffmpeg", "-y", "-i", clips[0], "-c:v", "libx264", merged],
+                               capture_output=True, timeout=120)
+            # 최종: 음성 + BGM 믹스
             final = f"{WORK}/h{rank}_final.mp4"
-            if has_voice:
+            bgm = f"{WORK}/h{rank}_bgm.wav"
+            has_bgm = _bgm(bgm, 35)
+            if has_voice and has_bgm:
+                # 나레이션(메인) + BGM(낮게) 믹스
+                subprocess.run(["ffmpeg", "-y", "-i", merged, "-i", voice_path, "-i", bgm,
+                                "-filter_complex",
+                                "[1:a]apad,loudnorm=I=-16:TP=-1.5[nar];"
+                                "[2:a]volume=0.5[bgm];"
+                                "[nar][bgm]amix=inputs=2:duration=first:dropout_transition=2[aout]",
+                                "-map", "0:v", "-map", "[aout]", "-shortest",
+                                "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", final],
+                               capture_output=True, timeout=180)
+            elif has_voice:
                 subprocess.run(["ffmpeg", "-y", "-i", merged, "-i", voice_path,
                                 "-af", "apad,loudnorm=I=-16:TP=-1.5", "-shortest", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", final],
                                capture_output=True, timeout=120)
