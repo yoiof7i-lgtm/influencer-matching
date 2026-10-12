@@ -7,6 +7,7 @@ from ..crawler import UA, list_hotels, hotel_photos, _payload, _fetch
 router = APIRouter(prefix="/autoshorts", tags=["autoshorts"])
 
 WORK = "/tmp/autoshorts"
+OUTDIR = "/code/uploads/shorts"  # 주인님 윈도우 폴더: C:\Users\jaq\influencer-matching\backend\uploads\shorts
 
 def _dl(url, path):
     req = urllib.request.Request(url, headers={"User-Agent": UA})
@@ -189,9 +190,16 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
                 "video": out_name,
                 "narrations": narrations,
             })
-            # 파일을 마운트된 위치로 (frontend에서 받도록 /static? 대신 API로 다운로드 제공)
+            # 윈도우에서 바로 볼 수 있는 폴더에 저장
             import shutil as _sh2
-            _sh2.copy(final, f"{WORK}/{out_name}")
+            os.makedirs(OUTDIR, exist_ok=True)
+            _sh2.copy(final, f"{OUTDIR}/{out_name}")
+            # 대본 텍스트도 저장
+            with open(f"{OUTDIR}/{safe_name}_대본.txt", "w", encoding="utf-8") as tf:
+                tf.write(f"호텔: {h['name']} (평점 {h['score']}, {h['reviews']})\n제목: {title}\n\n")
+                for i, (nn, cc) in enumerate(zip(narrations, captions)):
+                    tf.write(f"[{i+1}] {nn}\n    자막: {cc}\n")
+                tf.write(f"\n[다운로드] /autoshorts/download/{out_name}\n")
 
         if not results:
             raise HTTPException(502, "숏폼 생성 실패 (사진/영상 단계 오류)")
@@ -204,7 +212,8 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
 
 @router.get("/download/{name}")
 def download(name: str):
-    path = f"{WORK}/{name}"
-    if not os.path.exists(path):
-        raise HTTPException(404, "파일 없음")
-    return FileResponse(path, media_type="video/mp4", filename=name)
+    for base in [OUTDIR, WORK]:
+        path = f"{base}/{name}"
+        if os.path.exists(path):
+            return FileResponse(path, media_type="video/mp4", filename=name)
+    raise HTTPException(404, "파일 없음")

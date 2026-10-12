@@ -367,12 +367,26 @@ canvas#renderCanvas { display: none; }
         addLog(`[⚡원클릭] ${p.title} 전 과정 시작 (약 1~2분)`);
         try {
           // 1단계: 대본 (프론트 Gemini — 안정 경로)
-          const Q = '호텔 "'+p.title+'" (평점'+p.rankLabel+') 21초 숏폼 대본. 수영장·자쿠지·루프탑·오션뷰 최우선 강조. 훅+7비트(각3초)+CTA. 첫문장 8단어 이내·호텔명 금지·단점1개 솔직히·낮은압박CTA. JSON만: {"title":"","narrations":["7개, 각 12~20자"],"captions":["7개, 10자 이내"]}';
+          let Q = '호텔 "'+p.title+'" (평점'+p.rankLabel+') 21초 숏폼 대본. 수영장·자쿠지·루프탑·오션뷰 최우선 강조. 훅+7비트(각3초)+CTA. 첫문장 8단어 이내·호텔명 금지·단점1개 솔직히·낮은압박CTA. JSON만: {"title":"","narrations":["7개, 각 12~20자"],"captions":["7개, 10자 이내"]}';
           let aiT = '';
+          const aiParts = [{text: Q}];
+          // 사진을 AI에게 실제로 보여주기 (룸 특징 읽기) — 선별된 순서대로
+          if (pickedUrls.length === 7) {
+            const Q_read = '호텔 사진 7장이다. 순서: [1]침대룸 [2]침대룸다른각도 [3]화장실 [4]수영장/자쿠지 [5]건물외관 [6]전망 [7]조식. 특히 1번 룸사진을 자세히 보고 침대 크기·인테리어·창문·공간감 같은 룸 특징을 훅과 룸설명 비트에 구체적으로 반영. 각 비트(1~7)는 해당 사진에 딱 맞는 내용. 수영장·자쿠지·오션뷰 강조. 훅+7비트(각3초)+CTA, 첫문장 8단어 이내·호텔명 금지·단점1개 솔직히. JSON만: {"title":"","narrations":["7개, 각 12~20자"],"captions":["7개, 10자 이내"]}';
+            aiParts[0] = {text: Q_read};
+            for (const u of pickedUrls.slice(0,4)) {
+              try {
+                const pr = await fetch(`/crawl/proxy-img?url=${encodeURIComponent(u)}`);
+                const bl = await pr.blob();
+                const b64 = await new Promise(rs => { const rd = new FileReader(); rd.onload=()=>rs(rd.result.split(',')[1]); rd.readAsDataURL(bl); });
+                aiParts.push({inline_data:{mime_type:'image/jpeg', data:b64}});
+              } catch(e) {}
+            }
+          }
           const aiRes = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent', {
             method:'POST',
             headers:{'Content-Type':'application/json','x-goog-api-key':$('key').value.trim()||AI_G},
-            body: JSON.stringify({contents:[{role:'user',parts:[{text: Q}]}], generationConfig:{responseMimeType:'application/json',temperature:0.8}})
+            body: JSON.stringify({contents:[{role:'user',parts:aiParts}], generationConfig:{responseMimeType:'application/json',temperature:0.8}})
           });
           const aiJ = await aiRes.json();
           if (aiRes.ok) {
