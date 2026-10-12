@@ -187,13 +187,13 @@ canvas#renderCanvas { display: none; }
         <div class="photo-picker">
           <label class="label" for="photoFiles">사진 7장 선택 (내 PC에서 업로드)</label>
           <input id="photoFiles" type="file" accept="image/*" multiple>
-          <div class="help">사진 7장을 선택하면 사진당 약 3초씩 움직임을 적용해 총 약 21초의 세로형 WebM 영상을 만듭니다.</div>
+          <div class="help">사진 14장을 선택하면 사진당 2.5초씩 움직임을 적용해 총 약 35초의 세로형 WebM 영상을 만듭니다.</div>
           <div class="photo-grid" id="photoGrid">
-            <div class="photo-slot">사진 1</div><div class="photo-slot">사진 2</div><div class="photo-slot">사진 3</div><div class="photo-slot">사진 4</div><div class="photo-slot">사진 5</div><div class="photo-slot">사진 6</div><div class="photo-slot">사진 7</div>
+            <div class="photo-slot">사진 1</div><div class="photo-slot">사진 2</div><div class="photo-slot">사진 3</div><div class="photo-slot">사진 4</div><div class="photo-slot">사진 5</div><div class="photo-slot">사진 6</div><div class="photo-slot">사진 7</div><div class="photo-slot">사진 8</div><div class="photo-slot">사진 9</div><div class="photo-slot">사진 10</div><div class="photo-slot">사진 11</div><div class="photo-slot">사진 12</div><div class="photo-slot">사진 13</div><div class="photo-slot">사진 14</div>
           </div>
           <div class="actions"><button class="primary" id="videoBtn" disabled>③ 21초 숏폼 영상 만들기</button></div>
           <div class="video-progress"><span id="videoProgress"></span></div>
-          <div class="help" id="videoStatus" aria-live="polite">사진 7장을 선택하면 영상 제작 버튼이 활성화됩니다.</div>
+          <div class="help" id="videoStatus" aria-live="polite">사진 14장을 선택하면 영상 제작 버튼이 활성화됩니다.</div>
           <canvas id="renderCanvas" width="720" height="1280"></canvas>
         </div>
       </div>
@@ -205,7 +205,7 @@ canvas#renderCanvas { display: none; }
         <div class="pipeline">
           <div class="step" id="step1"><div class="step-icon">1</div><div class="step-copy"><strong>사이트 인기 상품 탐색</strong><small>상품 데이터 및 인기순위 확인</small></div><div class="step-state">대기</div></div>
           <div class="step" id="step2"><div class="step-icon">2</div><div class="step-copy"><strong>상품 사진 7장 선택</strong><small>상품 이미지 검토 및 장면 구성</small></div><div class="step-state">대기</div></div>
-          <div class="step" id="step3"><div class="step-icon">3</div><div class="step-copy"><strong>사진 모션 및 숏폼 합성</strong><small>사진마다 약 3초 움직임 적용</small></div><div class="step-state">대기</div></div>
+          <div class="step" id="step3"><div class="step-icon">3</div><div class="step-copy"><strong>사진 모션 및 숏폼 합성</strong><small>사진마다 2.5초 움직임 적용</small></div><div class="step-state">대기</div></div>
         </div>
 
         <div class="results">
@@ -345,7 +345,7 @@ let CITY_CODES = {};
           </div>
         </div>
         <div class="product-actions">
-          <button class="primary" data-auto7="${p.id}">📷 사진 7장 자동선택</button>
+          <button class="primary" data-auto7="${p.id}">📷 사진 14장 자동선택</button>
           <button class="primary" style="background:linear-gradient(135deg,#e85ba0,#a35bdf)" data-oneclick="${p.id}">⚡ 원클릭 숏폼</button>
           <button class="secondary" data-copy="${p.id}">카피 복사</button>
           <button class="quiet" data-open="${p.id}">상품 페이지 열기</button>
@@ -378,14 +378,14 @@ let CITY_CODES = {};
         b.disabled = true; b.textContent = '사진 수집 중…';
         addLog(`[사진] ${p.title} 사진 수집 중…`);
         try {
-          const res = await fetch(`/crawl/photos?hotel_id=${hid}&limit=25`);
+          const res = await fetch(`/crawl/photos?hotel_id=${hid}&limit=40`);
           if (!res.ok) throw new Error('HTTP '+res.status);
           const j = await res.json();
           await autoPick7(j.photos || []);
         } catch(e) {
           addLog('[사진 오류] ' + (e.message || e), 'warn');
         }
-        b.disabled = false; b.textContent = '📷 사진 7장 자동선택';
+        b.disabled = false; b.textContent = '📷 사진 14장 자동선택';
       })
     );
 
@@ -398,12 +398,12 @@ let CITY_CODES = {};
         addLog(`[⚡원클릭] ${p.title} 전 과정 시작 (약 1~2분)`);
         try {
           // 1단계: 대본 (프론트 Gemini — 안정 경로)
-          let Q = '호텔 "'+p.title+'" (평점'+p.rankLabel+') 21초 숏폼 대본. 수영장·자쿠지·루프탑·오션뷰 최우선 강조. 훅+7비트(각3초)+CTA. 첫문장 8단어 이내·호텔명 금지·단점1개 솔직히·낮은압박CTA. JSON만: {"title":"","narrations":["7개, 각 12~20자"],"captions":["7개, 10자 이내"]}';
+          let Q = '호텔 "'+p.title+'" (평점'+p.rankLabel+') 35초(14비트×2.5초) 숏폼 대본. 수영장·자쿠지·루프탑·오션뷰 최우선 강조. 훅+14비트(각2.5초)+CTA. 첫문장 8단어 이내·호텔명 금지·단점1개 솔직히·낮은압박CTA. JSON만: {"title":"","narrations":["14개, 각 12~20자"],"captions":["14개, 10자 이내"]}';
           let aiT = '';
           const aiParts = [{text: Q}];
           // 사진을 AI에게 실제로 보여주기 (룸 특징 읽기) — 선별된 순서대로
           if (pickedUrls.length === 7) {
-            const Q_read = '호텔 사진 7장이다. 순서: [1]침대룸 [2]침대룸다른각도 [3]화장실 [4]수영장/자쿠지 [5]건물외관 [6]전망 [7]조식. 특히 1번 룸사진을 자세히 보고 침대 크기·인테리어·창문·공간감 같은 룸 특징을 훅과 룸설명 비트에 구체적으로 반영. 각 비트(1~7)는 해당 사진에 딱 맞는 내용. 수영장·자쿠지·오션뷰 강조. 훅+7비트(각3초)+CTA, 첫문장 8단어 이내·호텔명 금지·단점1개 솔직히. JSON만: {"title":"","narrations":["7개, 각 12~20자"],"captions":["7개, 10자 이내"]}';
+            const Q_read = '호텔 사진 7장이다. 순서: [1]침대룸 [2]침대룸다른각도 [3]화장실 [4]수영장/자쿠지 [5]건물외관 [6]전망 [8]건물외관 [9~10]전망 [11]조식 [12~14]로비·편의·기타. 특히 1~3번 룸사진을 자세히 보고 침대 크기·인테리어·창문·공간감 같은 룸 특징을 훅과 룸설명 비트에 구체적으로 반영. 각 비트(1~14)는 해당 사진에 딱 맞는 내용. 수영장·자쿠지·오션뷰 강조. 훅+14비트(각2.5초)+CTA, 첫문장 8단어 이내·호텔명 금지·단점1개 솔직히. JSON만: {"title":"","narrations":["14개, 각 12~20자"],"captions":["14개, 10자 이내"]}';
             aiParts[0] = {text: Q_read};
             for (const u of pickedUrls.slice(0,4)) {
               try {
@@ -479,7 +479,7 @@ let CITY_CODES = {};
       const okUrls = (await Promise.all(dl)).filter(Boolean);
       addLog(`[사진] ${okUrls.length}/${photoUrls.length}장 로드 성공 → 분류 중…`);
       let b64s = [];
-      for (const u of okUrls.slice(0,10)) {
+      for (const u of okUrls.slice(0,16)) {
         try {
           const r2 = await fetch(`/crawl/proxy-img?url=${encodeURIComponent(u)}`);
           const bl = await r2.blob();
@@ -487,7 +487,7 @@ let CITY_CODES = {};
         } catch(e) {}
       }
       if (b64s.length >= 5) {
-        const parts = [{text: '호텔 사진들이다. 각 사진이 무엇인지 보고 아래 구성 그대로 7장을 순서대로 골라라 (주인님 지정 규칙, 변경 금지): [0]침대가 보이는 룸사진, [1]다른 각도의 침대 룸사진, [2]화장실, [3]수영장 또는 자쿠지, [4]건물 전체 외관, [5]전망 좋은 사진(뷰), [6]조식. 해당 사진이 없으면 가장 가까운 종류로 대체하되 순서는 유지. 응답은 JSON만: {"picks":[7개 인덱스,0부터],"types":[7개 분류명]}'}];
+        const parts = [{text: '호텔 사진들이다. 각 사진이 무엇인지 보고 아래 구성 그대로 14장을 순서대로 골라라 (규칙, 변경 금지). 절대 규칙: 같은 사진(같은 URL/완전히 동일한 장면)을 두 번 고르지 마라 — 반드시 서로 다른 14장. 구성: [0~2]침대가 보이는 룸사진 3장(서로 다른 각도·객실), [3~4]화장실 2장, [5~6]수영장 또는 자쿠지 2장, [7]건물 전체 외관 1장, [8~9]전망 좋은 사진 2장, [10]조식 1장, [11~13]로비·라운지·편의시설·기타 매력사진 3장. 해당 종류가 없으면 가장 가까운 종류로 대체하되 순서 유지. 응답은 JSON만: {"picks":[14개 인덱스,0부터,중복없음],"types":[14개 분류명]}'}];
         b64s.forEach(b => parts.push({inline_data:{mime_type:'image/jpeg', data:b}}));
         const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent', {
           method:'POST',
@@ -522,13 +522,13 @@ let CITY_CODES = {};
         files.push(new File([bl], 'p.jpg', {type:'image/jpeg'}));
       } catch(e) {}
     }
-    if (files.length !== 7) { addLog('[사진] 7장 확보 실패 (' + files.length + '장)', 'warn'); }
-    selectedPhotos = files.slice(0,7);
+    if (files.length !== 14) { addLog('[사진] 14장 확보 실패 (' + files.length + '장)', 'warn'); }
+    selectedPhotos = files.slice(0,14);
     photoObjectUrls.forEach(u => URL.revokeObjectURL(u));
     photoObjectUrls = selectedPhotos.map(f => URL.createObjectURL(f));
     renderPhotoSlots();
-    setStep(2,'사진 7장 자동선택 완료',true);
-    addLog(`[완료] 사진 7장 자동 선택 → [③ 21초 숏폼 영상 만들기] 활성`, 'good');
+    setStep(2,'사진 14장 자동선택 완료',true);
+    addLog(`[완료] 사진 14장 자동 선택 → [③ 35초 숏폼 영상 만들기] 활성`, 'good');
   }
 
   function copyText(text) {
@@ -573,10 +573,10 @@ let CITY_CODES = {};
         : `<div class="photo-slot">사진 ${i+1}</div>`
     ).join('');
 
-    $('videoBtn').disabled = selectedPhotos.length !== 7;
-    $('videoStatus').textContent = selectedPhotos.length === 7
-      ? '사진 7장 준비 완료 · 약 21초 영상 제작 가능'
-      : `사진 ${selectedPhotos.length}/7장 선택됨`;
+    $('videoBtn').disabled = selectedPhotos.length !== 14;
+    $('videoStatus').textContent = selectedPhotos.length === 14
+      ? '사진 14장 준비 완료 · 약 35초 영상 제작 가능'
+      : `사진 ${selectedPhotos.length}/14장 선택됨`;
   }
 
   function waitFrame() {
@@ -618,7 +618,7 @@ let CITY_CODES = {};
       '사진 움직임을 적용해 영상으로 합성 중입니다. 이 탭을 열어두세요.';
 
     try {
-      for (let i=0; i<7; i++) {
+      for (let i=0; i<14; i++) {
         const img = await new Promise((resolve,reject) => {
           const im = new Image();
           im.onload = () => resolve(im);
@@ -628,8 +628,8 @@ let CITY_CODES = {};
 
         const start = performance.now();
 
-        while (performance.now() - start < 3000) {
-          const t = Math.min(1, (performance.now() - start) / 3000);
+        while (performance.now() - start < 2500) {
+          const t = Math.min(1, (performance.now() - start) / 2500);
           const scale = 1.02 + t * 0.10;
           const cw = canvas.width;
           const ch = canvas.height;
@@ -652,9 +652,9 @@ let CITY_CODES = {};
           ctx.font = 'bold 28px sans-serif';
           ctx.fillText('추천 상품',42,ch-92);
           ctx.font = '20px sans-serif';
-          ctx.fillText(`${String(i+1).padStart(2,'0')} / 07`,42,ch-54);
+          ctx.fillText(`${String(i+1).padStart(2,'0')} / 14`,42,ch-54);
 
-          $('videoProgress').style.width = `${((i+t)/7)*100}%`;
+          $('videoProgress').style.width = `${((i+t)/14)*100}%`;
           await waitFrame();
         }
       }
@@ -666,7 +666,7 @@ let CITY_CODES = {};
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'shortform_21sec.webm';
+      a.download = 'shortform_35sec.webm';
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -676,8 +676,8 @@ let CITY_CODES = {};
       $('videoProgress').style.width = '100%';
       $('videoStatus').textContent =
         `완료: 약 21초 영상 (${(blob.size/1024/1024).toFixed(1)} MB). 형식: WebM`;
-      addLog('[영상] 약 21초 WebM 영상 생성 완료.', 'good');
-      setStep(3, 'WebM 생성 완료', true);
+      addLog('[영상] 약 35초 WebM 영상 생성 완료.', 'good');
+      setStep(3, 'WebM(35초) 생성 완료', true);
       $('statVideos').textContent = '완료';
 
     } catch (err) {
@@ -687,7 +687,7 @@ let CITY_CODES = {};
       addLog(`[영상 오류] ${err.message || err}`, 'warn');
     } finally {
       stream.getTracks().forEach(t => t.stop());
-      $('videoBtn').disabled = selectedPhotos.length !== 7;
+      $('videoBtn').disabled = selectedPhotos.length !== 14;
     }
   }
 
@@ -697,13 +697,13 @@ let CITY_CODES = {};
 
     selectedPhotos = Array.from(e.target.files || [])
       .filter(f => f.type.startsWith('image/'))
-      .slice(0,7);
+      .slice(0,14);
 
     photoObjectUrls = selectedPhotos.map(f => URL.createObjectURL(f));
     renderPhotoSlots();
 
-    if ((e.target.files || []).length > 7) {
-      addLog('[사진] 처음 7장만 선택했습니다.');
+    if ((e.target.files || []).length > 14) {
+      addLog('[사진] 처음 14장만 선택했습니다.');
     }
   });
 

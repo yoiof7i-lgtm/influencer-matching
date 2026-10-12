@@ -124,13 +124,13 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
         for rank, h in enumerate(hotels):
             # 2) 사진 7장 수집·다운로드 (프론트 AI 선별 순서 우선: 1전경 2객실 3욕실 4조식 5수영장 6기타 7뷰)
             if photo_urls:
-                photos = [u for u in photo_urls.split("|") if u.startswith("http")][:7]
+                photos = [u for u in photo_urls.split("|") if u.startswith("http")][:14]
             else:
                 photos = hotel_photos(h["id"], limit=25)
             if len(photos) < 7:
                 continue
             dl = []
-            for i, pu in enumerate(photos[:7]):
+            for i, pu in enumerate(photos):
                 try:
                     dl.append(_dl(pu, f"{WORK}/h{rank}_p{i}.jpg"))
                 except Exception:
@@ -163,19 +163,28 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
                             None)
                     except Exception:
                         script_raw = None
-            narrations = ["최고의 호텔을 소개합니다"] * 7
-            captions = [""] * 7
+            NPH = 14
+            narrations = ["최고의 호텔을 소개합니다"] * 14
+            captions = [""] * 14
             title = h["name"]
             if script_raw:
                 try:
                     sc = json.loads(re.sub(r'```json|```', '', script_raw).strip())
-                    narrations = (sc.get("narrations") or narrations)[:7]
-                    while len(narrations) < 7: narrations.append("")
-                    captions = (sc.get("captions") or [])[:7]
-                    while len(captions) < 7: captions.append("")
+                    narrations = [n for n in (sc.get("narrations") or []) if n][:14]
+                    captions = [c for c in (sc.get("captions") or []) if c][:14]
                     title = sc.get("title") or title
                 except Exception:
                     pass
+            # AI가 14개보다 적게 내면 나머지 자동 보충 (중복 문구 방지)
+            FILL_N = ["편안하게 쉬어갈 수 있는 공간이에요", "호텔만의 디테일이 돋보여요",
+                      "머무는 동안 불편함이 없어요", "체크인부터 체크아웃까지 만족스러워요",
+                      "가격 대비 만족도가 높은 곳이에요", "다음 여행에서 다시 오고 싶은 곳"]
+            FILL_C = ["추천 숙소", "만족스러운 선택", "디테일 좋아요", "편안한 머무름", "가성비 좋아요", "재방문 의사"]
+            fi = 0
+            while len(narrations) < 14 and fi < len(FILL_N):
+                narrations.append(FILL_N[fi]); captions.append(FILL_C[fi] if fi < len(FILL_C) else ""); fi += 1
+            while len(narrations) < 14:
+                narrations.append("여행에 딱 맞는 숙소예요"); captions.append("여행 추천")
 
             # 4) 음성 (대본 전체 → TTS)
             voice_path = f"{WORK}/h{rank}_voice.mp3"
@@ -183,11 +192,11 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
 
             # 5) 사진 모션 클립 7개 (자막 번인 — captions 없으면 narration 사용, 자막 항상 표시)
             clips = []
-            for i in range(7):
+            for i in range(14):
                 cap = (captions[i] if i < len(captions) else "") or (narrations[i] if i < len(narrations) else "")
                 c = _motion_clip(dl[i], f"{WORK}/h{rank}_c{i}.mp4", 3.0, cap)
                 if c: clips.append(c)
-            if len(clips) < 7:
+            if len(clips) < 14:
                 continue
 
             # 6) 합성
