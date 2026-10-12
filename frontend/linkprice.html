@@ -430,7 +430,7 @@ canvas#renderCanvas { display: none; }
       if (b64s.length >= 5) {
         const parts = [{text: '호텔 사진들이다. 예약하고 싶게 만드는 순서로 7장 고르라: 1전경 2객실 3욕실 4조식 5수영장/자쿠지 6라운지/기타 7최고뷰. 응답은 JSON만: {"picks":[인덱스7개,0부터]}'}];
         b64s.forEach(b => parts.push({inline_data:{mime_type:'image/jpeg', data:b}}));
-        const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
+        const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent', {
           method:'POST',
           headers:{'Content-Type':'application/json','x-goog-api-key':cfgKey},
           body: JSON.stringify({contents:[{role:'user',parts}], generationConfig:{responseMimeType:'application/json'}})
@@ -790,7 +790,7 @@ canvas#renderCanvas { display: none; }
     let out = '';
     try {
       if (AI_G) {
-        const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
+        const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent', {
           method:'POST',
           headers:{'Content-Type':'application/json','x-goog-api-key':AI_G},
           body: JSON.stringify({contents:[{role:'user',parts:[{text: AI_RULE + '\n\n[상품 목록]\n' + list}]}], generationConfig:{responseMimeType:'application/json', temperature:0.8}})

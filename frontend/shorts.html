@@ -87,7 +87,7 @@ pre{white-space:pre-wrap;word-break:break-word;margin:6px 0;background:var(--bg)
 <label>Gemini API 키 <a class="mu" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">(무료 발급)</a></label>
 <input type="text" id="key" placeholder="AIza..." autocomplete="off">
 <label>모델</label>
-<select id="model"><option value="gemini-2.5-flash">gemini-2.5-flash (빠름·저렴)</option><option value="gemini-2.5-pro">gemini-2.5-pro (정확)</option></select>
+<select id="model"><option value="gemini-3.8-flash">gemini-3.8-flash (빠름·저렴)</option><option value="gemini-3.8-flash">gemini-3.8-flash (정확)</option></select>
 <p class="mu" id="keynote">키는 이 브라우저(localStorage)에만 저장되고 Google API로만 전송돼요.</p>
 <button class="go" id="go">✨ 쇼츠 패키지 만들기</button>
 <p class="mu" id="stat"></p>
@@ -142,7 +142,7 @@ function onProviderChange(){
   $("key").value=isGemini?ls.get("gkey"):ls.get("okey");
   $("model").parentElement.querySelector("label:nth-of-type(4), label").style.display=isGemini?"":"none";
   $("model").style.display=isGemini?"":"none";
-  $("model").value=isGemini?(ls.get("gmodel")||"gemini-2.5-flash"):"dots-studio/dots-3-note-preview:free";
+  $("model").value=isGemini?(ls.get("gmodel")||"gemini-3.8-flash"):"dots-studio/dots-3-note-preview:free";
   $("keynote").textContent=isGemini?"키는 이 브라우저(localStorage)에만 저장되고 Google API로만 전송돼요.":"무료 모델 추천 — OpenRouter로 전송돼요. 유료 모델은 크레딧이 소진됩니다.";
 }
 
