@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>링크프라이스 숏폼 스튜디오</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: light-dark(#f5f7fb,#0c111b);
+  --panel: light-dark(#ffffff,#151d2a);
+  --panel2: light-dark(#f0f4fa,#1b2636);
+  --text: light-dark(#172033,#edf2fb);
+  --muted: light-dark(#68758a,#9baac0);
+  --line: light-dark(#e0e7f0,#2b394d);
+  --accent: light-dark(#6558e8,#9c91ff);
+  --accent2: light-dark(#e8e5ff,#302a5d);
+  --green: light-dark(#138b69,#57d5ad);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, Pretendard, "Noto Sans KR", system-ui, sans-serif; }
+.shell { max-width: 1240px; margin: auto; padding: 28px 24px 48px; }
+.topbar, .brand, .hero, .panel-head, .actions { display: flex; gap: 12px; align-items: center; }
+.topbar { justify-content: space-between; margin-bottom: 30px; }
+.logo { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; color: white; background: linear-gradient(135deg,#7869ff,#a35bdf); font-size: 21px; font-weight: 800; }
+.brand h1 { margin: 0; font-size: 19px; }
+.brand p, .help, .footer { color: var(--muted); font-size: 12px; }
+.brand p { margin: 3px 0 0; }
+.status, .pill { border: 1px solid var(--line); border-radius: 999px; padding: 9px 12px; color: var(--muted); font-size: 12px; }
+.hero { justify-content: space-between; align-items: flex-end; margin-bottom: 24px; }
+.eyebrow { color: var(--accent); font-size: 11px; font-weight: 800; letter-spacing: 1.7px; margin-bottom: 10px; }
+.hero h2 { font-size: clamp(28px,4vw,42px); line-height: 1.15; margin: 0; }
+.hero p { color: var(--muted); line-height: 1.65; font-size: 14px; max-width: 690px; }
+.stats { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin-bottom: 20px; }
+.stat, .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; }
+.stat { padding: 17px 18px; }
+.stat .label, .stat .sub { color: var(--muted); font-size: 12px; }
+.stat .num { font-size: 27px; font-weight: 750; margin-top: 9px; }
+.stat .sub { font-size: 11px; margin-top: 5px; }
+.layout { display: grid; grid-template-columns: minmax(0,1.05fr) minmax(340px,.95fr); gap: 18px; align-items: start; }
+.panel { overflow: hidden; }
+.panel-head { justify-content: space-between; padding: 19px 21px; border-bottom: 1px solid var(--line); }
+.panel-head h3 { margin: 0; font-size: 15px; }
+.panel-head span { color: var(--muted); font-size: 11px; }
+.panel-body { padding: 21px; }
+.label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 9px; }
+input, select { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 11px; padding: 12px 13px; font: inherit; font-size: 13px; }
+input:focus, select:focus { border-color: var(--accent); outline: none; }
+.help { line-height: 1.6; margin-top: 8px; }
+.site-input { margin-bottom: 15px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 17px; }
+.actions { flex-wrap: wrap; margin-top: 18px; }
+button { border: 0; border-radius: 11px; padding: 11px 14px; cursor: pointer; font-weight: 700; font-size: 12px; }
+button:disabled { opacity: .4; cursor: not-allowed; }
+.primary { color: white; background: var(--accent); }
+.secondary { background: var(--panel2); color: var(--text); border: 1px solid var(--line); }
+.quiet { color: var(--muted); background: transparent; border: 1px solid var(--line); }
+.notice { padding: 13px 14px; margin-top: 15px; border-radius: 12px; background: var(--panel2); color: var(--muted); font-size: 11px; line-height: 1.6; }
+.notice b { color: var(--text); }
+.pipeline { display: grid; gap: 10px; }
+.step { display: flex; align-items: center; gap: 13px; padding: 14px; border: 1px solid var(--line); border-radius: 13px; background: var(--bg); }
+.step .n { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: var(--accent2); color: var(--accent); font-weight: 800; font-size: 12px; flex: none; }
+.step .t { font-size: 13px; font-weight: 700; }
+.step .d { color: var(--muted); font-size: 11px; }
+.step.done .n { background: var(--green); color: white; }
+.step.doing .n { background: var(--accent); color: white; }
+textarea { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 11px; padding: 12px 13px; font: inherit; font-size: 13px; min-height: 64px; resize: vertical; }
+#thumbs { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+#thumbs img { width: 76px; height: 76px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
+.out-card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px; margin-top: 14px; }
+pre { white-space: pre-wrap; word-break: break-word; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; font: 12.5px/1.55 ui-monospace, monospace; }
+.tag { display: inline-block; background: var(--bg); border: 1px solid var(--line); border-radius: 99px; padding: 3px 10px; margin: 2px; font-size: 12px; cursor: pointer; }
+.err { color: #e5484d; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo">LP</div>
+      <div>
+        <h1>링크프라이스 숏폼 스튜디오</h1>
+        <p>상품 링크·스크린샷 → 숏폼 패키지 자동 생성</p>
+      </div>
+    </div>
+    <div class="status" id="status">🔑 키 준비 중…</div>
+  </div>
+
+  <div class="hero">
+    <div>
+      <div class="eyebrow">SHORTFORM STUDIO</div>
+      <h2>링크 하나로<br>숏폼 패키지가 완성</h2>
+      <p>상품 스크린샷(최대 7장) 또는 링크 정보 입력 → 상품 분석 → 대본 3안 → 사진/영상 프롬프트 → 제목·태그까지 한 번에 생성합니다.</p>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="label">이번 세션 생성</div><div class="num" id="s1">0</div><div class="sub">패키지</div></div>
+    <div class="stat"><div class="label">대본 안</div><div class="num" id="s2">—</div><div class="sub">3안 생성</div></div>
+    <div class="stat"><div class="label">영상 클립</div><div class="num" id="s3">—</div><div class="sub">4초 × N개</div></div>
+    <div class="stat"><div class="label">태그</div><div class="num" id="s4">—</div><div class="sub">복사 가능</div></div>
+  </div>
+
+  <div class="layout">
+    <div class="panel">
+      <div class="panel-head"><h3>1 · 상품 입력</h3><span>스크린샷 · 링크 · 메모</span></div>
+      <div class="panel-body">
+        <label class="label">상품 스크린샷 (최대 7장)</label>
+        <input type="file" id="file" accept="image/*" multiple>
+        <div id="thumbs"></div>
+        <label class="label" style="margin-top:15px">또는 상품 정보 입력</label>
+        <textarea id="txt" placeholder="상품명, 가격, 특징, 쇼핑몰(쿠팡·네이버·무신사·올리브영·알리 등), 링크프라이스 수익성 메모 등"></textarea>
+        <div class="row2">
+          <div>
+            <label class="label">AI 공급자</label>
+            <select id="provider">
+              <option value="gemini">Gemini (Google)</option>
+              <option value="openrouter">OpenRouter</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">모델</label>
+            <select id="model">
+              <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
+              <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+              <option value="dots-studio/dots-3-note-preview:free">Dots 3 (OpenRouter 무료)</option>
+            </select>
+          </div>
+        </div>
+        <label class="label" style="margin-top:15px">API 키</label>
+        <input type="password" id="key" placeholder="공급자 키 (자동 채움)" autocomplete="off">
+        <div class="actions">
+          <button class="primary" id="go">✨ 숏폼 패키지 만들기</button>
+          <button class="quiet" id="clear">초기화</button>
+        </div>
+        <p class="notice" id="stat">API 키는 이 브라우저에 저장되고, 서버에서 자동 채워집니다.</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>2 · 제작 파이프라인</h3><span id="pipe-state">대기</span></div>
+      <div class="panel-body">
+        <div class="pipeline">
+          <div class="step done" id="p1"><div class="n">1</div><div><div class="t">제품 사진 7장 입력</div><div class="d">상품별 이미지 폴더 / 스크린샷</div></div></div>
+          <div class="step" id="p2"><div class="n">2</div><div><div class="t">AI 패키지 생성</div><div class="d">분석 · 대본 3안 · 프롬프트 · 태그</div></div></div>
+          <div class="step" id="p3"><div class="n">3</div><div><div class="t">사진별 4초 영상 생성 · 음성</div><div class="d">구글 플로우 / Veo — 프롬프트 복사</div></div></div>
+          <div class="step" id="p4"><div class="n">4</div><div><div class="t">자동 영상 합성</div><div class="d">클립 연결 · 음성 동기화 · 자막 · 음악</div></div></div>
+          <div class="step" id="p5"><div class="n">5</div><div><div class="t">9:16 세로 영상 완성</div><div class="d">MP4 · 1080×1920 · 쇼츠/릴스용</div></div></div>
+          <div class="step" id="p6"><div class="n">6</div><div><div class="t">게시 자동화</div><div class="d">제목 · 설명 · 게시 · 결과 기록</div></div></div>
+        </div>
+        <p class="notice"><b>지금 화면은 1~2단계 도구</b>입니다. 3단계(영상)부터는 생성된 프롬프트를 구글 플로우에 붙여넣고, 만든 클립은 합성 단계(4~5)로 넘기면 됩니다.</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="out" class="hide">
+    <div class="out-card" id="c-an"></div>
+    <div class="out-card"><div class="tabs" id="tabs"></div><div id="script"></div></div>
+    <div class="out-card" id="c-pr"></div>
+    <div class="out-card" id="c-tt"></div>
+  </div>
+
+  <p class="footer" style="margin-top:30px">링크프라이스 숏폼 스튜디오 — Gemini / OpenRouter 이중 공급자 · 스크린샷 7장 · 4초 클립 규격</p>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+let imgs=[], data=null, cur=0, made=0;
+
+// ── 키 자동 주입 (PC/모바일 공통 — 서버 config) ──
+function lsGet(k){try{return localStorage.getItem(k)||""}catch(e){return ""}}
+function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+(async function initKeys(){
+  let gk=lsGet("lp_gkey"), ok=lsGet("lp_okey");
+  if(!gk||!ok){
+    try{
+      const cfg=await (await fetch("/config")).json();
+      if(!gk)gk=cfg.gemini_key||"";
+      if(!ok)ok=cfg.openrouter_key||"";
+    }catch(e){}
+  }
+  if(gk)lsSet("lp_gkey",gk);
+  if(ok)lsSet("lp_okey",ok);
+  fillKey();
+  $("status").textContent="🔑 키 준비 완료";
+})();
+function fillKey(){
+  const p=$("provider").value;
+  const k = p==="gemini" ? lsGet("lp_gkey") : lsGet("lp_okey");
+  if(k)$("key").value=k;
+  $("key").placeholder = p==="gemini" ? "AIza..." : "sk-or-v1-...";
+}
+$("provider").onchange=fillKey;
+
+// ── 업로드 ──
+$("file").onchange=async e=>{
+  imgs=[];
+  $("thumbs").innerHTML="";
+  const files=[...e.target.files].slice(0,7);
+  if(!files.length)return;
+  for(const f of files){
+    const b=await shrink(f);
+    imgs.push(b);
+    const im=document.createElement("img");
+    im.src=URL.createObjectURL(b);
+    $("thumbs").appendChild(im);
+  }
+  $("p1").classList.add("done");
+};
+function shrink(f){return new Promise(r=>{const i=new Image();i.onload=()=>{const s=Math.min(1,1400/Math.max(i.width,i.height)),c=document.createElement("canvas");c.width=i.width*s;c.height=i.height*s;c.getContext("2d").drawImage(i,0,0,c.width,c.height);c.toBlob(b=>r(b),"image/jpeg",.85)};i.src=URL.createObjectURL(f)})}
+
+function esc(s){const d=document.createElement("div");d.textContent=s==null?"":String(s);return d.innerHTML}
+function cp(t){navigator.clipboard&&navigator.clipboard.writeText(t).catch(()=>{})}
+window.__c=[];
+window.cpi=i=>cp(window.__c[i]||"");
+function C(t){window.__c.push(t);return `<button class="cp" onclick="cpi(${window.__c.length-1})">복사</button>`}
+
+const RULES=`너는 한국 쇼핑 숏폼 기획자다. 입력된 상품 이미지/정보를 보고 숏폼 제작 패키지를 만든다.
+절대 원칙: 1)팩트 기반 — 이미지/입력에 없는 스펙·수치는 지어내지 말고 "확인 필요"로 표기 2)광고티 제거 — "사세요" 금지 3)후킹 — 첫 문장 8단어 이내, 제품명 금지 4)9:16, 비트당 4초(영상 클립 4초 고정), 한국어 구어체 5)단점 1개 솔직히 포함 6)낮은 압박 CTA.
+대본은 서로 다른 구조로 3안, 각 안 3~5비트. 비트 시간 표기 "0-4","4-8"… 4초 단위. video_prompt에 "4 seconds shot" 포함, 영어, 1인칭 POV·손만 등장·얼굴 노출 없음·9:16.
+반드시 아래 JSON만 출력(마크다운/설명 금지):
+{"analysis":{"name":"","price":"","mall":"","features":[""],"pros":[""],"cons":[""],"target":"","angle":""},
+"scripts":[{"structure":"","hook":"","beats":[{"sec":"0-4","narration":"","caption":"","shot":"촬영 설명","photo_prompt":"English","video_prompt":"English"}],"cta":""}],
+"titles":["5개"],"tags":["15개 내외, # 없이"]}`;
+
+// ── 생성 ──
+$("go").onclick=async()=>{
+  const key=$("key").value.trim(), provider=$("provider").value;
+  let model=$("model").value;
+  if(!key){$("stat").innerHTML='<span class="err">API 키를 입력해 주세요.</span>';return}
+  if(!imgs.length&&!$("txt").value.trim()){$("stat").innerHTML='<span class="err">스크린샷이나 상품 정보를 입력해 주세요.</span>';return}
+  if(provider==="gemini")lsSet("lp_gkey",key);else lsSet("lp_okey",key);
+  lsSet("lp_"+provider+"_model",model);
+  $("go").disabled=true;
+  $("stat").textContent="분석 중… (20~60초)";
+  $("p2").classList.add("doing");
+  const prompt=RULES+`\n\n[상품 정보 텍스트] ${$("txt").value.trim()||"없음 (이미지 참고)"}`;
+  try{
+    const parts=[{text:prompt}];
+    for(const im of imgs)parts.push({inline_data:{mime_type:"image/jpeg",data:im}});
+    let t;
+    if(provider==="gemini"){
+      const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{
+        method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":key},
+        body:JSON.stringify({contents:[{role:"user",parts}],generationConfig:{responseMimeType:"application/json",temperature:0.8}})});
+      const j=await res.json();
+      if(!res.ok)throw new Error(j.error&&j.error.message||("HTTP "+res.status));
+      t=(j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||"").join("");
+    }else{
+      const content=[{type:"text",text:prompt}];
+      for(const im of imgs)content.push({type:"image_url",image_url:{url:"data:image/jpeg;base64,"+im}});
+      const res=await fetch("https://openrouter.ai/api/v1/chat/completions",{
+        method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},
+        body:JSON.stringify({model,messages:[{role:"user",content}],temperature:0.8})});
+      const j=await res.json();
+      if(!res.ok)throw new Error(j.error&&j.error.message||("HTTP "+res.status));
+      t=j.choices?.[0]?.message?.content||"";
+    }
+    const m=t.replace(/```json|```/g,"").match(/\{[\s\S]*\}/);
+    if(!m)throw new Error("AI 응답에서 JSON을 찾지 못했습니다 — 다시 시도해주세요");
+    data=JSON.parse(m[0]);cur=0;made++;render();
+    $("stat").textContent="✅ 패키지 생성 완료";
+    $("p2").classList.add("done");$("p2").classList.remove("doing");
+    $("p3").classList.add("doing");
+    $("s1").textContent=made;
+    $("s2").textContent=(data.scripts||[]).length+"안";
+    $("s3").textContent=((data.scripts||[])[0]?.beats||[]).length+"개";
+    $("s4").textContent=(data.tags||[]).length+"개";
+  }catch(e){
+    $("stat").innerHTML='<span class="err">실패: '+esc(e.message||e)+'</span>';
+    $("p2").classList.remove("doing");
+  }
+  $("go").disabled=false;
+};
+$("clear").onclick=()=>{imgs=[];$("thumbs").innerHTML="";$("txt").value="";$("out").classList.add("hide");$("stat").textContent="초기화 완료";["p2","p3","p4","p5","p6"].forEach(i=>$(i).className="step")};
+
+// ── 렌더 ──
+function render(){
+  window.__c=[];const a=data.analysis||{};
+  $("out").classList.remove("hide");
+  const L=x=>(x||[]).map(v=>"<li>"+esc(v)+"</li>").join("");
+  $("c-an").innerHTML=`<h2>🔍 상품 분석</h2><b>${esc(a.name)}</b> · ${esc(a.price)} <span class="mu">${esc(a.mall)}</span>
+  <p class="mu">타겟: ${esc(a.target)} · 추천 앵글: ${esc(a.angle)}</p>
+  <b>특징</b><ul>${L(a.features)}</ul><b>장점</b><ul>${L(a.pros)}</ul><b>단점/주의</b><ul>${L(a.cons)}</ul>`;
+  const S=data.scripts||[];
+  $("tabs").innerHTML=S.map((s,i)=>`<button class="${i===cur?"on":""}" onclick="cur=${i};render()">${i+1}안 · ${esc(s.structure)}</button>`).join("");
+  const sc=S[cur]||{beats:[]};
+  const full=[sc.hook,...(sc.beats||[]).map(b=>b.narration),sc.cta].filter(Boolean).join("\n");
+  $("script").innerHTML=`<h2>🎬 대본 ${C(full)}</h2>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+   <button class="primary" onclick="window.open('https://typical.ai/ko','_blank')">🎙 TTS 열기</button>
+   <span class="mu" style="align-self:center">대본 붙여넣기 → 음성(mp3) 다운로드</span>
+  </div>
+  <p><b>훅:</b> ${esc(sc.hook)}</p>`+
+  (sc.beats||[]).map((b,i)=>`<div class="beat"><b>${i+1}. ${esc(b.sec)}초</b> <span class="mu">🎥 ${esc(b.shot)}</span>
+  <div>🗣 ${esc(b.narration)}</div><div class="mu">💬 자막: ${esc(b.caption)}</div></div>`).join("")+
+  `<p><b>CTA:</b> ${esc(sc.cta)}</p>`;
+  $("c-pr").innerHTML=`<h2>🖼 사진·영상 프롬프트 <span class="mu">(${cur+1}안 기준)</span></h2>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+   <button class="primary" onclick="copyAll('photo')">📸 사진 프롬프트 전체 복사</button>
+   <button class="secondary" onclick="copyAll('video')">🎬 영상 프롬프트 전체 복사</button>
+   <button class="secondary" style="background:#111;color:#fff" onclick="window.open('https://labs.google/fx/ko/tools/flow','_blank')">🚀 구글 플로우 열기</button>
+  </div>`+
+  (sc.beats||[]).map((b,i)=>`<div class="beat"><b>비트 ${i+1}</b> <span class="mu">${esc(b.sec)}초</span>
+  <div class="mu">📸 사진 ${C(b.photo_prompt)}</div><pre>${esc(b.photo_prompt)}</pre>
+  <div class="mu">🎥 영상 ${C(b.video_prompt)}</div><pre>${esc(b.video_prompt)}</pre></div>`).join("");
+  $("c-tt").innerHTML=`<h2>✏️ 제목 · 태그</h2>`+(data.titles||[]).map(t=>`<div>• ${esc(t)} ${C(t)}</div>`).join("")+
+  `<p>`+(data.tags||[]).map(t=>`<span class="tag" onclick="cp('#${esc(t)}')">#${esc(t)}</span>`).join("")+`</p>`+
+  `<button class="cp" style="float:none" onclick="cp('${(data.tags||[]).map(t=>"#"+t).join(" ").replace(/'/g,"")}')">태그 전체 복사</button>`;
+}
+window.copyAll=function(kind){
+  const sc=(data.scripts||[])[cur]||{};
+  const beats=sc.beats||[];
+  const key=kind==="photo"?"photo_prompt":"video_prompt";
+  const out=beats.map((b,i)=>`[Beat ${i+1} — ${b.sec||""}s]\n${b[key]||""}`).join("\n\n");
+  cp(out);
+  $("stat").textContent=kind==="photo"?"📸 사진 프롬프트 전체 복사 완료":"🎬 영상 프롬프트 전체 복사 완료";
+};
+</script>
+</body>
+</html>
