@@ -79,8 +79,8 @@ def _tts(text, path):
     except Exception:
         return False
 
-def _motion_clip(img_path, out_path, dur=3.0, caption=""):
-    """사진 1장 → 3초 줌+드리프트 클립 (9:16 1080x1920) + 자막 번인"""
+def _motion_clip(img_path, out_path, dur=2.5, caption=""):
+    """사진 1장 → 2.5초 줌+드리프트 클립 (9:16 1080x1920) + 자막 번인"""
     vf = (
         "scale=1080:1920:force_original_aspect_ratio=increase,"
         "crop=1080:1920,"
@@ -122,7 +122,7 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
 
         results = []
         for rank, h in enumerate(hotels):
-            # 2) 사진 7장 수집·다운로드 (프론트 AI 선별 순서 우선: 1전경 2객실 3욕실 4조식 5수영장 6기타 7뷰)
+            # 2) 사진 14장 수집·다운로드 (프론트 AI 선별 순서 우선: 1전경 2객실 3욕실 4조식 5수영장 6기타 7뷰)
             if photo_urls:
                 photos = [u for u in photo_urls.split("|") if u.startswith("http")][:14]
             else:
@@ -147,19 +147,19 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
                 try:
                     # 서버→Gemini 사진첨부는 반복 타임아웃 실측 → 텍스트 전용만 사용
                     script_raw = _retry(lambda: _gemini_call(
-                        f'"{h["name"]}" 호텔(평점{h["score"]}, {h["reviews"]}) 21초 숏폼 대본. '
+                        f'"{h["name"]}" 호텔(평점{h["score"]}, {h["reviews"]}) 35초 숏폼 대본. '
                         '사진 순서는 고정: 침대룸→침대룸(다른각도)→화장실→수영장/자쿠지→건물외관→전망→조식. 대본도 이 순서에 맞게. '
-                        '훅+7비트(각3초)+CTA. 첫문장 8단어 이내·호텔명 금지·단점1개 솔직히. '
+                        '훅+14비트(각2.5초)+CTA. 첫문장 8단어 이내·호텔명 금지·단점1개 솔직히. '
                         'JSON만: {"title":"","narrations":["7개, 각 12~20자"],"captions":["7개, 10자 이내"]}',
                         None))
                 except Exception:
                     # 사진 첨부 503 → 텍스트 전용 폴백
                     try:
                         script_raw = _gemini_call(
-                            f'"{h["name"]}" 호텔(평점{h["score"]}, {h["reviews"]}) 21초 숏폼 대본. '
-                            '훅+7비트(각3초)+CTA. 수영장·자쿠지·루프탑·오션뷰 강조. '
+                            f'"{h["name"]}" 호텔(평점{h["score"]}, {h["reviews"]}) 35초 숏폼 대본. '
+                            '훅+14비트(각2.5초)+CTA. 수영장·자쿠지·루프탑·오션뷰 강조. '
                             '첫문장 8단어 이내·제품명 금지·단점1개 솔직히. '
-                            'JSON만: {"title":"","narrations":["7개"],"captions":["7개"]}',
+                            'JSON만: {"title":"","narrations":["14개"],"captions":["14개"]}',
                             None)
                     except Exception:
                         script_raw = None
