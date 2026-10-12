@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import models
 from app.database import engine
-from app.routers import auth, users, reviews
+from app.routers import auth, users, reviews, crawl
 
 # DB 기동 대기: 연결 실패 시 최대 60초 재시도 (Docker 재시작 순서 문제 방지)
 import time as _time
@@ -30,6 +30,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(reviews.router)
+app.include_router(crawl.router)
 
 # 프론트엔드 정적 서빙 (MVP — /web에서 index.html, /static은 파일 직접)
 from fastapi.staticfiles import StaticFiles

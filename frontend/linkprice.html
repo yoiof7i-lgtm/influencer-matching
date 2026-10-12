@@ -270,6 +270,18 @@ canvas#renderCanvas { display: none; }
     $('resultCount').textContent = products.length + '개 상품';
   }
 
+  function tilesHtml(p) {
+    let h = '';
+    if (p.img) {
+      h += '<div class="media-tile" style="background:#fff;padding:0"><img src="' + p.img + '" style="width:100%;height:100%;object-fit:cover" alt=""></div>';
+    }
+    const n = p.img ? 6 : 7;
+    for (let i = 0; i < n; i++) {
+      h += '<div class="media-tile">사진 ' + (i + 1 + (p.img ? 1 : 0)) + '<br>선택 대기</div>';
+    }
+    return h;
+  }
+
   function renderProducts() {
     updateStats();
 
@@ -287,11 +299,7 @@ canvas#renderCanvas { display: none; }
           <p>${escapeHtml(p.url)}</p>
           <div class="price">${escapeHtml(p.price)}</div>
           <p style="margin-top:6px">${escapeHtml(p.rankLabel)}</p>
-          <div class="product-media">
-            ${Array.from({length:7},(_,i) =>
-              `<div class="media-tile">사진 ${i+1}<br>선택 대기</div>`
-            ).join('')}
-          </div>
+          <div class="product-media">${tilesHtml(p)}</div>
           ${p.caption
             ? `<p style="margin-top:9px;color:var(--text)">${escapeHtml(p.caption)}</p>`
             : '<p style="margin-top:9px">카피 생성 전</p>'}
@@ -301,6 +309,7 @@ canvas#renderCanvas { display: none; }
           </div>
         </div>
         <div class="product-actions">
+          <button class="primary" data-auto7="${p.id}">📷 사진 7장 자동선택</button>
           <button class="secondary" data-copy="${p.id}">카피 복사</button>
           <button class="quiet" data-open="${p.id}">상품 페이지 열기</button>
         </div>
@@ -322,6 +331,88 @@ canvas#renderCanvas { display: none; }
         addLog('상품 페이지 열기를 요청했습니다.');
       })
     );
+
+    $('productList').querySelectorAll('[data-auto7]').forEach(b =>
+      b.addEventListener('click', async () => {
+        const p = products.find(x => x.id === b.dataset.auto7);
+        if (!p) return;
+        const hid = (p.url.match(/hotelId=(\d+)/) || [])[1];
+        if (!hid) { addLog('[오류] 호텔 ID를 찾을 수 없습니다.', 'warn'); return; }
+        b.disabled = true; b.textContent = '사진 수집 중…';
+        addLog(`[사진] ${p.title} 사진 수집 중…`);
+        try {
+          const res = await fetch(`/crawl/photos?hotel_id=${hid}&limit=25`);
+          if (!res.ok) throw new Error('HTTP '+res.status);
+          const j = await res.json();
+          await autoPick7(j.photos || []);
+        } catch(e) {
+          addLog('[사진 오류] ' + (e.message || e), 'warn');
+        }
+        b.disabled = false; b.textContent = '📷 사진 7장 자동선택';
+      })
+    );
+  }
+
+  async function autoPick7(photoUrls) {
+    const cfgKey = AI_G;
+    addLog(`[사진] ${photoUrls.length}장 수집 완료 → AI 선별 중…`);
+    if (!cfgKey) { await applyPhotos(photoUrls.slice(0,7)); return; }
+    try {
+      const dl = photoUrls.slice(0,10).map(u => new Promise((res) => {
+        const im = new Image(); im.crossOrigin='anonymous';
+        im.onload = () => res(u); im.onerror = () => res(null); im.src = u;
+      }));
+      const okUrls = (await Promise.all(dl)).filter(Boolean);
+      addLog(`[사진] ${okUrls.length}/${photoUrls.length}장 로드 성공 → 분류 중…`);
+      let b64s = [];
+      for (const u of okUrls.slice(0,10)) {
+        try {
+          const r2 = await fetch(`/crawl/proxy-img?url=${encodeURIComponent(u)}`);
+          const bl = await r2.blob();
+          b64s.push(await new Promise(rs => { const rd = new FileReader(); rd.onload=()=>rs(rd.result.split(',')[1]); rd.readAsDataURL(bl); }));
+        } catch(e) {}
+      }
+      if (b64s.length >= 5) {
+        const parts = [{text: '호텔 사진들이다. 예약하고 싶게 만드는 순서로 7장 고르라: 1전경 2객실 3욕실 4조식 5수영장/자쿠지 6라운지/기타 7최고뷰. 응답은 JSON만: {"picks":[인덱스7개,0부터]}'}];
+        b64s.forEach(b => parts.push({inline_data:{mime_type:'image/jpeg', data:b}}));
+        const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
+          method:'POST',
+          headers:{'Content-Type':'application/json','x-goog-api-key':cfgKey},
+          body: JSON.stringify({contents:[{role:'user',parts}], generationConfig:{responseMimeType:'application/json'}})
+        });
+        const j2 = await res.json();
+        const t = (j2.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('');
+        const m = t.match(/\{[\s\S]*\}/);
+        if (m) {
+          const picks = JSON.parse(m[0]).picks || [];
+          const sel = picks.map(i => okUrls[i]).filter(Boolean).slice(0,7);
+          if (sel.length === 7) { await applyPhotos(sel); return; }
+        }
+      }
+      addLog('[사진] AI 선별 실패 → 상위 7장 사용', 'warn');
+      await applyPhotos(okUrls.slice(0,7).length ? okUrls.slice(0,7) : photoUrls.slice(0,7));
+    } catch(e) {
+      addLog('[사진 오류] ' + (e.message||e) + ' → 상위 7장 사용', 'warn');
+      await applyPhotos(photoUrls.slice(0,7));
+    }
+  }
+
+  async function applyPhotos(urls) {
+    const files = [];
+    for (const u of urls) {
+      try {
+        const r = await fetch(`/crawl/proxy-img?url=${encodeURIComponent(u)}`);
+        const bl = await r.blob();
+        files.push(new File([bl], 'p.jpg', {type:'image/jpeg'}));
+      } catch(e) {}
+    }
+    if (files.length !== 7) { addLog('[사진] 7장 확보 실패 (' + files.length + '장)', 'warn'); }
+    selectedPhotos = files.slice(0,7);
+    photoObjectUrls.forEach(u => URL.revokeObjectURL(u));
+    photoObjectUrls = selectedPhotos.map(f => URL.createObjectURL(f));
+    renderPhotoSlots();
+    setStep(2,'사진 7장 자동선택 완료',true);
+    addLog(`[완료] 사진 7장 자동 선택 → [③ 21초 숏폼 영상 만들기] 활성`, 'good');
   }
 
   function copyText(text) {
@@ -525,7 +616,7 @@ canvas#renderCanvas { display: none; }
     $('log').textContent = logs[0];
   });
 
-  $('crawlBtn').addEventListener('click', () => {
+  $('crawlBtn').addEventListener('click', async () => {
     const urls = getUrls();
 
     if (!urls.length) {
@@ -534,31 +625,46 @@ canvas#renderCanvas { display: none; }
     }
 
     const count = Number($('productCount').value) || 10;
-    const host = new URL(urls[0]).hostname.replace(/^www\./,'');
-
-    products = Array.from({length:count},(_,i) => ({
-      id: String(i+1).padStart(2,'0'),
-      url: urls[0],
-      title: `${host} 상품 후보 ${i+1}`,
-      price: '가격·재고 확인 필요',
-      rankLabel: `데모 순위 ${i+1} · 실제 판매순위 아님`,
-      caption: ''
-    }));
-
-    setStep(1,'데모 완료',true);
-    setStep(2,'사진 선택 대기',false);
-    setStep(3,'영상 제작 대기',false);
-    $('pipelineLabel').textContent = '분석 흐름 미리보기';
-    $('copyBtn').disabled = false;
-    $('jsonBtn').disabled = false;
-    $('captionsBtn').disabled = true;
-
-    addLog('=== 1단계: 사이트 분석 흐름 ===');
+    setStep(1,'trip.com 수집 중…',false);
+    $('pipelineLabel').textContent = '실제 상품 수집 중';
     addLog(`[사이트] ${urls[0]}`);
-    addLog(`[설정] 상품 후보 ${count}개를 표시합니다.`);
-    addLog('[안내] 실제 사이트 크롤링이나 판매순위 검증은 수행하지 않았습니다.', 'warn');
+    addLog(`[설정] 인기 호텔 ${count}개 수집 시작…`);
 
-    renderProducts();
+    try {
+      // trip.com 호텔리스트 URL → city 코드 추출
+      const m = urls[0].match(/city=(\d+)/);
+      const city = m ? m[1] : '623';
+      const res = await fetch(`/crawl/trip?city=${city}&count=${count}`);
+      if (!res.ok) {
+        const e = await res.json().catch(()=>({}));
+        throw new Error(e.detail || ('HTTP '+res.status));
+      }
+      const j = await res.json();
+      products = j.hotels.map((h,i) => ({
+        id: String(i+1).padStart(2,'0'),
+        url: h.detail_url,
+        title: h.name,
+        price: h.price ? `${h.price.toLocaleString()}원` : '가격 확인 필요',
+        rankLabel: `⭐${h.score} · ${h.reviews}`,
+        img: h.img,
+        caption: ''
+      }));
+      setStep(1,`수집 완료 (${products.length}개)`,true);
+      setStep(2,'사진 선택 대기',false);
+      setStep(3,'영상 제작 대기',false);
+      $('pipelineLabel').textContent = '인기순위 수집 완료';
+      $('copyBtn').disabled = false;
+      $('aiBtn').disabled = false;
+      $('jsonBtn').disabled = false;
+      $('captionsBtn').disabled = true;
+      addLog(`[완료] 리뷰×평점 인기순 상위 ${products.length}개 수집 (trip.com 실데이터)`, 'good');
+      renderProducts();
+    } catch(e) {
+      setStep(1,'수집 실패',false);
+      $('pipelineLabel').textContent = '수집 실패';
+      addLog('[오류] ' + (e.message || e), 'warn');
+      addLog('[안내] trip.com 외 사이트는 아직 미연결입니다.', 'warn');
+    }
   });
 
   $('copyBtn').addEventListener('click', () => {
