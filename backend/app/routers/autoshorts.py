@@ -16,9 +16,32 @@ def _dl(url, path):
     return path
 
 def _gemini_call(prompt, images_b64=None):
+    """Gemini(사진첨부 불안정 실측) — 실패 시 OpenRouter 비전 모델 폴백"""
     key = os.getenv("GEMINI_API_KEY", "")
+    if key:
+        try:
+            return _gemini_core(key, prompt, images_b64)
+        except Exception:
+            pass
+    return _openrouter_call(prompt, images_b64)
+
+def _openrouter_call(prompt, images_b64=None):
+    key = os.getenv("OPENROUTER_API_KEY", "")
     if not key:
         return None
+    content = [{"type": "text", "text": prompt}]
+    for b in (images_b64 or [])[:4]:
+        content.append({"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + b}})
+    body = json.dumps({"model": "google/gemini-3.8-flash",
+                       "messages": [{"role": "user", "content": content}]}).encode()
+    req = urllib.request.Request("https://openrouter.ai/api/v1/chat/completions",
+                                 data=body, headers={"Content-Type": "application/json",
+                                                     "Authorization": "Bearer " + key})
+    r = urllib.request.urlopen(req, timeout=150)
+    j = json.loads(r.read().decode())
+    return j.get("choices", [{}])[0].get("message", {}).get("content")
+
+def _gemini_core(key, prompt, images_b64=None):
     parts = [{"text": prompt}]
     # 이미지 과다 첨부 시 503 발생 실측 → 4장으로 제한 + 축소 인코딩
     for b in (images_b64 or [])[:4]:
