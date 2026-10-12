@@ -59,263 +59,551 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 .notice b { color: var(--text); }
 .pipeline { display: grid; gap: 10px; }
 .step { display: flex; align-items: center; gap: 13px; padding: 14px; border: 1px solid var(--line); border-radius: 13px; background: var(--bg); }
-.step .n { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: var(--accent2); color: var(--accent); font-weight: 800; font-size: 12px; flex: none; }
-.step .t { font-size: 13px; font-weight: 700; }
-.step .d { color: var(--muted); font-size: 11px; }
-.step.done .n { background: var(--green); color: white; }
-.step.doing .n { background: var(--accent); color: white; }
-textarea { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 11px; padding: 12px 13px; font: inherit; font-size: 13px; min-height: 64px; resize: vertical; }
-#thumbs { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-#thumbs img { width: 76px; height: 76px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
-.out-card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px; margin-top: 14px; }
-pre { white-space: pre-wrap; word-break: break-word; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; font: 12.5px/1.55 ui-monospace, monospace; }
-.tag { display: inline-block; background: var(--bg); border: 1px solid var(--line); border-radius: 99px; padding: 3px 10px; margin: 2px; font-size: 12px; cursor: pointer; }
-.err { color: #e5484d; }
+.step-icon { width: 36px; height: 36px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 11px; background: var(--accent2); color: var(--accent); font-weight: 800; }
+.step-copy { flex: 1; min-width: 0; }
+.step-copy strong { display: block; font-size: 13px; }
+.step-copy small { display: block; margin-top: 4px; font-size: 11px; color: var(--muted); line-height: 1.45; }
+.step-state { font-size: 10px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 5px 8px; }
+.step.done .step-state { color: var(--green); }
+.results { margin-top: 18px; }
+.empty { padding: 28px 18px; text-align: center; border: 1px dashed var(--line); border-radius: 13px; color: var(--muted); font-size: 12px; line-height: 1.7; }
+.empty .big { font-size: 26px; margin-bottom: 7px; }
+.log { background: #111827; color: #c8d4e7; padding: 14px; border-radius: 12px; font-family: monospace; font-size: 11px; line-height: 1.8; min-height: 104px; max-height: 190px; overflow: auto; white-space: pre-wrap; }
+.log .good { color: #72e2b5; }
+.log .warn { color: #f3c26b; }
+.product { display: grid; grid-template-columns: 42px minmax(0,1fr) auto; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.product-num { width: 38px; height: 38px; border-radius: 11px; background: var(--panel2); display: grid; place-items: center; color: var(--accent); font-weight: 800; }
+.product h4 { margin: 1px 0 5px; font-size: 13px; overflow-wrap: anywhere; }
+.product p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; overflow-wrap: anywhere; }
+.product .price { margin-top: 7px; font-weight: 750; font-size: 12px; }
+.product-actions { display: flex; flex-direction: column; gap: 6px; }
+.product-actions button { padding: 7px 9px; font-size: 10px; }
+.product-media, .photo-grid { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 6px; margin-top: 12px; }
+.media-tile { aspect-ratio: 3/4; border-radius: 8px; background: linear-gradient(145deg,#dce8f6,#aebed5); display: grid; place-items: center; color: #35435b; font-size: 10px; text-align: center; padding: 4px; }
+.media-tile:nth-child(2n) { background: linear-gradient(145deg,#f5dfc7,#d5a982); }
+.media-tile:nth-child(3n) { background: linear-gradient(145deg,#d5eee6,#8ebdaf); }
+.video-demo { margin-top: 14px; padding: 14px; border: 1px solid var(--line); border-radius: 13px; background: var(--bg); }
+.video-stage { width: min(100%,240px); aspect-ratio: 9/16; margin: auto; border-radius: 14px; display: flex; align-items: center; justify-content: center; text-align: center; color: white; padding: 18px; background: linear-gradient(145deg,#182c48,#537da0 48%,#e0b68b); }
+.video-stage span { font-size: 17px; font-weight: 800; }
+.photo-picker { margin-top: 16px; padding: 14px; border: 1px dashed var(--line); border-radius: 13px; background: var(--bg); }
+.photo-slot { min-width: 0; aspect-ratio: 3/4; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--muted); font-size: 10px; background: var(--panel2); }
+.photo-slot img { width: 100%; height: 100%; object-fit: cover; }
+.video-progress { height: 6px; border-radius: 99px; background: var(--panel2); overflow: hidden; margin-top: 10px; }
+.video-progress span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+canvas#renderCanvas { display: none; }
+.footer { text-align: center; margin-top: 22px; }
+@media(max-width:850px) {
+  .layout { grid-template-columns: 1fr; }
+  .hero { align-items: flex-start; flex-direction: column; }
+  .stats { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media(max-width:520px) {
+  .shell { padding: 20px 14px 32px; }
+  .topbar { align-items: flex-start; }
+  .stats { gap: 8px; }
+  .stat { padding: 13px; }
+  .stat .num { font-size: 23px; }
+  .panel-head, .panel-body { padding: 16px; }
+  .row2 { grid-template-columns: 1fr; }
+  .product { grid-template-columns: 36px minmax(0,1fr); }
+  .product-actions { grid-column: 2; flex-direction: row; }
+}
 </style>
 </head>
 <body>
-<div class="shell">
-  <div class="topbar">
+<div id="app">
+<main class="shell">
+  <header class="topbar">
     <div class="brand">
-      <div class="logo">LP</div>
-      <div>
-        <h1>링크프라이스 숏폼 스튜디오</h1>
-        <p>상품 링크·스크린샷 → 숏폼 패키지 자동 생성</p>
-      </div>
+      <div class="logo">L</div>
+      <div><h1>링크프라이스 숏폼 스튜디오</h1><p>Affiliate Short-form Workflow · Prototype</p></div>
     </div>
-    <div class="status" id="status">🔑 키 준비 중…</div>
-  </div>
+    <div class="status">브라우저 데모 모드</div>
+  </header>
 
-  <div class="hero">
+  <section class="hero">
     <div>
-      <div class="eyebrow">SHORTFORM STUDIO</div>
-      <h2>링크 하나로<br>숏폼 패키지가 완성</h2>
-      <p>상품 스크린샷(최대 7장) 또는 링크 정보 입력 → 상품 분석 → 대본 3안 → 사진/영상 프롬프트 → 제목·태그까지 한 번에 생성합니다.</p>
+      <div class="eyebrow">SITE → TOP PRODUCTS → 7 PHOTOS → SHORTS</div>
+      <h2>사이트 주소 하나로<br>인기 상품 숏폼 제작 시작</h2>
+      <p>쇼핑 사이트 주소를 입력하고 상품 탐색, 사진 7장 선택, 사진별 3초 모션 영상 제작까지 이어지는 작업 흐름입니다.</p>
     </div>
-  </div>
+    <div class="pill">✦ 사이트 분석형 제작 파이프라인</div>
+  </section>
 
-  <div class="stats">
-    <div class="stat"><div class="label">이번 세션 생성</div><div class="num" id="s1">0</div><div class="sub">패키지</div></div>
-    <div class="stat"><div class="label">대본 안</div><div class="num" id="s2">—</div><div class="sub">3안 생성</div></div>
-    <div class="stat"><div class="label">영상 클립</div><div class="num" id="s3">—</div><div class="sub">4초 × N개</div></div>
-    <div class="stat"><div class="label">태그</div><div class="num" id="s4">—</div><div class="sub">복사 가능</div></div>
-  </div>
+  <section class="stats">
+    <div class="stat"><div class="label">입력한 상품 URL</div><div class="num" id="statUrls">0</div><div class="sub">주소 입력 상태</div></div>
+    <div class="stat"><div class="label">상품 데이터</div><div class="num" id="statProducts">0</div><div class="sub">이번 브라우저 세션</div></div>
+    <div class="stat"><div class="label">카피 문구</div><div class="num" id="statCopies">0</div><div class="sub">생성 완료</div></div>
+    <div class="stat"><div class="label">영상 작업 상태</div><div class="num" id="statVideos">대기</div><div class="sub">WebM 영상 제작</div></div>
+  </section>
 
   <div class="layout">
-    <div class="panel">
-      <div class="panel-head"><h3>1 · 상품 입력</h3><span>스크린샷 · 링크 · 메모</span></div>
+    <section class="panel">
+      <div class="panel-head"><h3>01 / 쇼핑 사이트 선택</h3><span>사이트 주소부터 시작</span></div>
       <div class="panel-body">
-        <label class="label">상품 스크린샷 (최대 7장)</label>
-        <input type="file" id="file" accept="image/*" multiple>
-        <div id="thumbs"></div>
-        <label class="label" style="margin-top:15px">또는 상품 정보 입력</label>
-        <textarea id="txt" placeholder="상품명, 가격, 특징, 쇼핑몰(쿠팡·네이버·무신사·올리브영·알리 등), 링크프라이스 수익성 메모 등"></textarea>
+        <label class="label" for="urls">분석할 사이트 주소</label>
+        <input class="site-input" id="urls" value="https://kr.trip.com/" spellcheck="false" placeholder="https://kr.trip.com/">
+
+        <label class="label" for="productCount">살펴볼 상품 수</label>
+        <select id="productCount">
+          <option value="5">상위 5개</option>
+          <option value="10" selected>상위 10개</option>
+          <option value="20">상위 20개</option>
+        </select>
+        <div class="help">실제 인기순위와 상품 사진을 자동으로 가져오려면 해당 사이트의 API, 제휴 피드 또는 허용된 데이터 접근 방식이 필요합니다.</div>
+
         <div class="row2">
           <div>
-            <label class="label">AI 공급자</label>
-            <select id="provider">
-              <option value="gemini">Gemini (Google)</option>
-              <option value="openrouter">OpenRouter</option>
+            <label class="label" for="tone">카피 스타일</label>
+            <select id="tone">
+              <option value="friendly">친근한 추천형</option>
+              <option value="premium">프리미엄·깔끔한 톤</option>
+              <option value="benefit">혜택 강조형</option>
+              <option value="short">짧고 간결한 톤</option>
             </select>
           </div>
           <div>
-            <label class="label">모델</label>
-            <select id="model">
-              <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
-              <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-              <option value="dots-studio/dots-3-note-preview:free">Dots 3 (OpenRouter 무료)</option>
-            </select>
+            <label class="label" for="hashtag">해시태그</label>
+            <input id="hashtag" value="#링크프라이스 #추천상품 #쇼핑숏츠">
           </div>
         </div>
-        <label class="label" style="margin-top:15px">API 키</label>
-        <input type="password" id="key" placeholder="공급자 키 (자동 채움)" autocomplete="off">
-        <div class="actions">
-          <button class="primary" id="go">✨ 숏폼 패키지 만들기</button>
-          <button class="quiet" id="clear">초기화</button>
-        </div>
-        <p class="notice" id="stat">API 키는 이 브라우저에 저장되고, 서버에서 자동 채워집니다.</p>
-      </div>
-    </div>
 
-    <div class="panel">
-      <div class="panel-head"><h3>2 · 제작 파이프라인</h3><span id="pipe-state">대기</span></div>
+        <div class="actions">
+          <button class="primary" id="crawlBtn">① 사이트 분석 시작</button>
+          <button class="secondary" id="demoBtn">Trip.com 예시</button>
+          <button class="quiet" id="clearBtn">초기화</button>
+        </div>
+
+        <div class="notice"><b>안내</b><br>이 버전은 작업 흐름을 확인하는 프로토타입입니다. 실제 외부 사이트 크롤링과 인기순위 수집은 연결되어 있지 않습니다.</div>
+
+        <div class="photo-picker">
+          <label class="label" for="photoFiles">사진 7장 선택 (내 PC에서 업로드)</label>
+          <input id="photoFiles" type="file" accept="image/*" multiple>
+          <div class="help">사진 7장을 선택하면 사진당 약 3초씩 움직임을 적용해 총 약 21초의 세로형 WebM 영상을 만듭니다.</div>
+          <div class="photo-grid" id="photoGrid">
+            <div class="photo-slot">사진 1</div><div class="photo-slot">사진 2</div><div class="photo-slot">사진 3</div><div class="photo-slot">사진 4</div><div class="photo-slot">사진 5</div><div class="photo-slot">사진 6</div><div class="photo-slot">사진 7</div>
+          </div>
+          <div class="actions"><button class="primary" id="videoBtn" disabled>③ 21초 숏폼 영상 만들기</button></div>
+          <div class="video-progress"><span id="videoProgress"></span></div>
+          <div class="help" id="videoStatus" aria-live="polite">사진 7장을 선택하면 영상 제작 버튼이 활성화됩니다.</div>
+          <canvas id="renderCanvas" width="720" height="1280"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h3>02 / 제작 파이프라인</h3><span id="pipelineLabel">실행 대기 중</span></div>
       <div class="panel-body">
         <div class="pipeline">
-          <div class="step done" id="p1"><div class="n">1</div><div><div class="t">제품 사진 7장 입력</div><div class="d">상품별 이미지 폴더 / 스크린샷</div></div></div>
-          <div class="step" id="p2"><div class="n">2</div><div><div class="t">AI 패키지 생성</div><div class="d">분석 · 대본 3안 · 프롬프트 · 태그</div></div></div>
-          <div class="step" id="p3"><div class="n">3</div><div><div class="t">사진별 4초 영상 생성 · 음성</div><div class="d">구글 플로우 / Veo — 프롬프트 복사</div></div></div>
-          <div class="step" id="p4"><div class="n">4</div><div><div class="t">자동 영상 합성</div><div class="d">클립 연결 · 음성 동기화 · 자막 · 음악</div></div></div>
-          <div class="step" id="p5"><div class="n">5</div><div><div class="t">9:16 세로 영상 완성</div><div class="d">MP4 · 1080×1920 · 쇼츠/릴스용</div></div></div>
-          <div class="step" id="p6"><div class="n">6</div><div><div class="t">게시 자동화</div><div class="d">제목 · 설명 · 게시 · 결과 기록</div></div></div>
+          <div class="step" id="step1"><div class="step-icon">1</div><div class="step-copy"><strong>사이트 인기 상품 탐색</strong><small>상품 데이터 및 인기순위 확인</small></div><div class="step-state">대기</div></div>
+          <div class="step" id="step2"><div class="step-icon">2</div><div class="step-copy"><strong>상품 사진 7장 선택</strong><small>상품 이미지 검토 및 장면 구성</small></div><div class="step-state">대기</div></div>
+          <div class="step" id="step3"><div class="step-icon">3</div><div class="step-copy"><strong>사진 모션 및 숏폼 합성</strong><small>사진마다 약 3초 움직임 적용</small></div><div class="step-state">대기</div></div>
         </div>
-        <p class="notice"><b>지금 화면은 1~2단계 도구</b>입니다. 3단계(영상)부터는 생성된 프롬프트를 구글 플로우에 붙여넣고, 만든 클립은 합성 단계(4~5)로 넘기면 됩니다.</p>
+
+        <div class="results">
+          <label class="label">작업 로그</label>
+          <div class="log" id="log" aria-live="polite">[시스템] 준비되었습니다. 사이트 URL을 입력하세요.</div>
+        </div>
+        <div class="actions">
+          <button class="primary" id="copyBtn" disabled>② 카피 문구 생성</button>
+          <button class="secondary" id="jsonBtn" disabled>상품 JSON 내보내기</button>
+          <button class="secondary" id="captionsBtn" disabled>카피 전체 내보내기</button>
+        </div>
       </div>
+    </section>
+  </div>
+
+  <section class="panel results">
+    <div class="panel-head"><h3>03 / 상품 및 숏폼 미리보기</h3><span id="resultCount">0개 상품</span></div>
+    <div class="panel-body" id="productList">
+      <div class="empty">아직 상품 데이터가 없습니다.<br>왼쪽에서 사이트 분석을 시작하세요.</div>
     </div>
-  </div>
+  </section>
 
-  <div id="out" class="hide">
-    <div class="out-card" id="c-an"></div>
-    <div class="out-card"><div class="tabs" id="tabs"></div><div id="script"></div></div>
-    <div class="out-card" id="c-pr"></div>
-    <div class="out-card" id="c-tt"></div>
-  </div>
-
-  <p class="footer" style="margin-top:30px">링크프라이스 숏폼 스튜디오 — Gemini / OpenRouter 이중 공급자 · 스크린샷 7장 · 4초 클립 규격</p>
+  <div class="footer">실제 인기순위 자동 수집은 사이트별 데이터 연동이 필요합니다.</div>
+</main>
 </div>
 
 <script>
-const $=id=>document.getElementById(id);
-let imgs=[], data=null, cur=0, made=0;
+(() => {
+  const $ = id => document.getElementById(id);
+  let products = [];
+  let selectedPhotos = [];
+  let photoObjectUrls = [];
+  let logs = ['[시스템] 준비되었습니다. 사이트 URL을 입력하세요.'];
 
-// ── 키 자동 주입 (PC/모바일 공통 — 서버 config) ──
-function lsGet(k){try{return localStorage.getItem(k)||""}catch(e){return ""}}
-function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
-(async function initKeys(){
-  let gk=lsGet("lp_gkey"), ok=lsGet("lp_okey");
-  if(!gk||!ok){
-    try{
-      const cfg=await (await fetch("/config")).json();
-      if(!gk)gk=cfg.gemini_key||"";
-      if(!ok)ok=cfg.openrouter_key||"";
-    }catch(e){}
+  const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+
+  function addLog(message, cls='') {
+    logs.push(message);
+    if (logs.length > 80) logs.shift();
+    $('log').innerHTML = logs.map((line,i) =>
+      `<div class="${i===logs.length-1 ? cls : ''}">${escapeHtml(line)}</div>`
+    ).join('');
+    $('log').scrollTop = $('log').scrollHeight;
   }
-  if(gk)lsSet("lp_gkey",gk);
-  if(ok)lsSet("lp_okey",ok);
-  fillKey();
-  $("status").textContent="🔑 키 준비 완료";
-})();
-function fillKey(){
-  const p=$("provider").value;
-  const k = p==="gemini" ? lsGet("lp_gkey") : lsGet("lp_okey");
-  if(k)$("key").value=k;
-  $("key").placeholder = p==="gemini" ? "AIza..." : "sk-or-v1-...";
-}
-$("provider").onchange=fillKey;
 
-// ── 업로드 ──
-$("file").onchange=async e=>{
-  imgs=[];
-  $("thumbs").innerHTML="";
-  const files=[...e.target.files].slice(0,7);
-  if(!files.length)return;
-  for(const f of files){
-    const b=await shrink(f);
-    imgs.push(b);
-    const im=document.createElement("img");
-    im.src=URL.createObjectURL(b);
-    $("thumbs").appendChild(im);
+  function setStep(n, status, done=false) {
+    const el = $('step'+n);
+    el.classList.toggle('done', done);
+    el.querySelector('.step-state').textContent = status;
   }
-  $("p1").classList.add("done");
-};
-function shrink(f){return new Promise(r=>{const i=new Image();i.onload=()=>{const s=Math.min(1,1400/Math.max(i.width,i.height)),c=document.createElement("canvas");c.width=i.width*s;c.height=i.height*s;c.getContext("2d").drawImage(i,0,0,c.width,c.height);c.toBlob(b=>r(b),"image/jpeg",.85)};i.src=URL.createObjectURL(f)})}
 
-function esc(s){const d=document.createElement("div");d.textContent=s==null?"":String(s);return d.innerHTML}
-function cp(t){navigator.clipboard&&navigator.clipboard.writeText(t).catch(()=>{})}
-window.__c=[];
-window.cpi=i=>cp(window.__c[i]||"");
-function C(t){window.__c.push(t);return `<button class="cp" onclick="cpi(${window.__c.length-1})">복사</button>`}
+  function getUrls() {
+    const value = $('urls').value.trim();
+    return /^https?:\/\//i.test(value) ? [value] : [];
+  }
 
-const RULES=`너는 한국 쇼핑 숏폼 기획자다. 입력된 상품 이미지/정보를 보고 숏폼 제작 패키지를 만든다.
-절대 원칙: 1)팩트 기반 — 이미지/입력에 없는 스펙·수치는 지어내지 말고 "확인 필요"로 표기 2)광고티 제거 — "사세요" 금지 3)후킹 — 첫 문장 8단어 이내, 제품명 금지 4)9:16, 비트당 4초(영상 클립 4초 고정), 한국어 구어체 5)단점 1개 솔직히 포함 6)낮은 압박 CTA.
-대본은 서로 다른 구조로 3안, 각 안 3~5비트. 비트 시간 표기 "0-4","4-8"… 4초 단위. video_prompt에 "4 seconds shot" 포함, 영어, 1인칭 POV·손만 등장·얼굴 노출 없음·9:16.
-반드시 아래 JSON만 출력(마크다운/설명 금지):
-{"analysis":{"name":"","price":"","mall":"","features":[""],"pros":[""],"cons":[""],"target":"","angle":""},
-"scripts":[{"structure":"","hook":"","beats":[{"sec":"0-4","narration":"","caption":"","shot":"촬영 설명","photo_prompt":"English","video_prompt":"English"}],"cta":""}],
-"titles":["5개"],"tags":["15개 내외, # 없이"]}`;
+  function updateStats() {
+    $('statUrls').textContent = getUrls().length;
+    $('statProducts').textContent = products.length;
+    $('statCopies').textContent = products.filter(p => p.caption).length;
+    $('statVideos').textContent = '대기';
+    $('resultCount').textContent = products.length + '개 상품';
+  }
 
-// ── 생성 ──
-$("go").onclick=async()=>{
-  const key=$("key").value.trim(), provider=$("provider").value;
-  let model=$("model").value;
-  if(!key){$("stat").innerHTML='<span class="err">API 키를 입력해 주세요.</span>';return}
-  if(!imgs.length&&!$("txt").value.trim()){$("stat").innerHTML='<span class="err">스크린샷이나 상품 정보를 입력해 주세요.</span>';return}
-  if(provider==="gemini")lsSet("lp_gkey",key);else lsSet("lp_okey",key);
-  lsSet("lp_"+provider+"_model",model);
-  $("go").disabled=true;
-  $("stat").textContent="분석 중… (20~60초)";
-  $("p2").classList.add("doing");
-  const prompt=RULES+`\n\n[상품 정보 텍스트] ${$("txt").value.trim()||"없음 (이미지 참고)"}`;
-  try{
-    const parts=[{text:prompt}];
-    for(const im of imgs)parts.push({inline_data:{mime_type:"image/jpeg",data:im}});
-    let t;
-    if(provider==="gemini"){
-      const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{
-        method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":key},
-        body:JSON.stringify({contents:[{role:"user",parts}],generationConfig:{responseMimeType:"application/json",temperature:0.8}})});
-      const j=await res.json();
-      if(!res.ok)throw new Error(j.error&&j.error.message||("HTTP "+res.status));
-      t=(j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||"").join("");
-    }else{
-      const content=[{type:"text",text:prompt}];
-      for(const im of imgs)content.push({type:"image_url",image_url:{url:"data:image/jpeg;base64,"+im}});
-      const res=await fetch("https://openrouter.ai/api/v1/chat/completions",{
-        method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},
-        body:JSON.stringify({model,messages:[{role:"user",content}],temperature:0.8})});
-      const j=await res.json();
-      if(!res.ok)throw new Error(j.error&&j.error.message||("HTTP "+res.status));
-      t=j.choices?.[0]?.message?.content||"";
+  function renderProducts() {
+    updateStats();
+
+    if (!products.length) {
+      $('productList').innerHTML =
+        '<div class="empty">아직 상품 데이터가 없습니다.<br>왼쪽에서 사이트 분석을 시작하세요.</div>';
+      return;
     }
-    const m=t.replace(/```json|```/g,"").match(/\{[\s\S]*\}/);
-    if(!m)throw new Error("AI 응답에서 JSON을 찾지 못했습니다 — 다시 시도해주세요");
-    data=JSON.parse(m[0]);cur=0;made++;render();
-    $("stat").textContent="✅ 패키지 생성 완료";
-    $("p2").classList.add("done");$("p2").classList.remove("doing");
-    $("p3").classList.add("doing");
-    $("s1").textContent=made;
-    $("s2").textContent=(data.scripts||[]).length+"안";
-    $("s3").textContent=((data.scripts||[])[0]?.beats||[]).length+"개";
-    $("s4").textContent=(data.tags||[]).length+"개";
-  }catch(e){
-    $("stat").innerHTML='<span class="err">실패: '+esc(e.message||e)+'</span>';
-    $("p2").classList.remove("doing");
-  }
-  $("go").disabled=false;
-};
-$("clear").onclick=()=>{imgs=[];$("thumbs").innerHTML="";$("txt").value="";$("out").classList.add("hide");$("stat").textContent="초기화 완료";["p2","p3","p4","p5","p6"].forEach(i=>$(i).className="step")};
 
-// ── 렌더 ──
-function render(){
-  window.__c=[];const a=data.analysis||{};
-  $("out").classList.remove("hide");
-  const L=x=>(x||[]).map(v=>"<li>"+esc(v)+"</li>").join("");
-  $("c-an").innerHTML=`<h2>🔍 상품 분석</h2><b>${esc(a.name)}</b> · ${esc(a.price)} <span class="mu">${esc(a.mall)}</span>
-  <p class="mu">타겟: ${esc(a.target)} · 추천 앵글: ${esc(a.angle)}</p>
-  <b>특징</b><ul>${L(a.features)}</ul><b>장점</b><ul>${L(a.pros)}</ul><b>단점/주의</b><ul>${L(a.cons)}</ul>`;
-  const S=data.scripts||[];
-  $("tabs").innerHTML=S.map((s,i)=>`<button class="${i===cur?"on":""}" onclick="cur=${i};render()">${i+1}안 · ${esc(s.structure)}</button>`).join("");
-  const sc=S[cur]||{beats:[]};
-  const full=[sc.hook,...(sc.beats||[]).map(b=>b.narration),sc.cta].filter(Boolean).join("\n");
-  $("script").innerHTML=`<h2>🎬 대본 ${C(full)}</h2>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-   <button class="primary" onclick="window.open('https://typical.ai/ko','_blank')">🎙 TTS 열기</button>
-   <span class="mu" style="align-self:center">대본 붙여넣기 → 음성(mp3) 다운로드</span>
-  </div>
-  <p><b>훅:</b> ${esc(sc.hook)}</p>`+
-  (sc.beats||[]).map((b,i)=>`<div class="beat"><b>${i+1}. ${esc(b.sec)}초</b> <span class="mu">🎥 ${esc(b.shot)}</span>
-  <div>🗣 ${esc(b.narration)}</div><div class="mu">💬 자막: ${esc(b.caption)}</div></div>`).join("")+
-  `<p><b>CTA:</b> ${esc(sc.cta)}</p>`;
-  $("c-pr").innerHTML=`<h2>🖼 사진·영상 프롬프트 <span class="mu">(${cur+1}안 기준)</span></h2>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-   <button class="primary" onclick="copyAll('photo')">📸 사진 프롬프트 전체 복사</button>
-   <button class="secondary" onclick="copyAll('video')">🎬 영상 프롬프트 전체 복사</button>
-   <button class="secondary" style="background:#111;color:#fff" onclick="window.open('https://labs.google/fx/ko/tools/flow','_blank')">🚀 구글 플로우 열기</button>
-  </div>`+
-  (sc.beats||[]).map((b,i)=>`<div class="beat"><b>비트 ${i+1}</b> <span class="mu">${esc(b.sec)}초</span>
-  <div class="mu">📸 사진 ${C(b.photo_prompt)}</div><pre>${esc(b.photo_prompt)}</pre>
-  <div class="mu">🎥 영상 ${C(b.video_prompt)}</div><pre>${esc(b.video_prompt)}</pre></div>`).join("");
-  $("c-tt").innerHTML=`<h2>✏️ 제목 · 태그</h2>`+(data.titles||[]).map(t=>`<div>• ${esc(t)} ${C(t)}</div>`).join("")+
-  `<p>`+(data.tags||[]).map(t=>`<span class="tag" onclick="cp('#${esc(t)}')">#${esc(t)}</span>`).join("")+`</p>`+
-  `<button class="cp" style="float:none" onclick="cp('${(data.tags||[]).map(t=>"#"+t).join(" ").replace(/'/g,"")}')">태그 전체 복사</button>`;
-}
-window.copyAll=function(kind){
-  const sc=(data.scripts||[])[cur]||{};
-  const beats=sc.beats||[];
-  const key=kind==="photo"?"photo_prompt":"video_prompt";
-  const out=beats.map((b,i)=>`[Beat ${i+1} — ${b.sec||""}s]\n${b[key]||""}`).join("\n\n");
-  cp(out);
-  $("stat").textContent=kind==="photo"?"📸 사진 프롬프트 전체 복사 완료":"🎬 영상 프롬프트 전체 복사 완료";
-};
+    $('productList').innerHTML = products.map(p => `
+      <article class="product">
+        <div class="product-num">${p.id}</div>
+        <div>
+          <h4>${escapeHtml(p.title)}</h4>
+          <p>${escapeHtml(p.url)}</p>
+          <div class="price">${escapeHtml(p.price)}</div>
+          <p style="margin-top:6px">${escapeHtml(p.rankLabel)}</p>
+          <div class="product-media">
+            ${Array.from({length:7},(_,i) =>
+              `<div class="media-tile">사진 ${i+1}<br>선택 대기</div>`
+            ).join('')}
+          </div>
+          ${p.caption
+            ? `<p style="margin-top:9px;color:var(--text)">${escapeHtml(p.caption)}</p>`
+            : '<p style="margin-top:9px">카피 생성 전</p>'}
+          <div class="video-demo">
+            <div class="video-stage"><span>사진 모션 미리보기<br>${escapeHtml(p.title)}</span></div>
+            <p class="help">실제 영상 파일은 아래 사진 7장 제작 기능에서 생성하세요.</p>
+          </div>
+        </div>
+        <div class="product-actions">
+          <button class="secondary" data-copy="${p.id}">카피 복사</button>
+          <button class="quiet" data-open="${p.id}">상품 페이지 열기</button>
+        </div>
+      </article>
+    `).join('');
+
+    $('productList').querySelectorAll('[data-copy]').forEach(b =>
+      b.addEventListener('click', () => {
+        const p = products.find(x => x.id === b.dataset.copy);
+        if (p && p.caption) copyText(p.caption);
+        else addLog('먼저 카피 문구를 생성해주세요.');
+      })
+    );
+
+    $('productList').querySelectorAll('[data-open]').forEach(b =>
+      b.addEventListener('click', () => {
+        const p = products.find(x => x.id === b.dataset.open);
+        if (p) window.open(p.url, '_blank', 'noopener');
+        addLog('상품 페이지 열기를 요청했습니다.');
+      })
+    );
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(() => addLog('[복사] 클립보드에 복사했습니다.', 'good'))
+        .catch(() => fallbackCopy(text));
+    } else {
+      fallbackCopy(text);
+    }
+  }
+
+  function fallbackCopy(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand('copy');
+      addLog('[복사] 복사를 요청했습니다.', 'good');
+    } catch (e) {
+      addLog('[안내] 자동 복사가 제한되었습니다.', 'warn');
+    }
+    ta.remove();
+  }
+
+  function download(name, content, type='application/json;charset=utf-8') {
+    const blob = new Blob([content], {type});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  function renderPhotoSlots() {
+    $('photoGrid').innerHTML = Array.from({length:7},(_,i) =>
+      selectedPhotos[i]
+        ? `<div class="photo-slot"><img src="${photoObjectUrls[i]}" alt="선택한 사진 ${i+1}"></div>`
+        : `<div class="photo-slot">사진 ${i+1}</div>`
+    ).join('');
+
+    $('videoBtn').disabled = selectedPhotos.length !== 7;
+    $('videoStatus').textContent = selectedPhotos.length === 7
+      ? '사진 7장 준비 완료 · 약 21초 영상 제작 가능'
+      : `사진 ${selectedPhotos.length}/7장 선택됨`;
+  }
+
+  function waitFrame() {
+    return new Promise(resolve => requestAnimationFrame(resolve));
+  }
+
+  async function renderShortVideo() {
+    if (selectedPhotos.length !== 7) return;
+
+    const canvas = $('renderCanvas');
+    const ctx = canvas.getContext('2d');
+
+    if (!canvas.captureStream || !window.MediaRecorder) {
+      $('videoStatus').textContent =
+        '이 브라우저는 영상 녹화를 지원하지 않습니다. 최신 Chrome 또는 Edge를 이용해주세요.';
+      return;
+    }
+
+    const stream = canvas.captureStream(30);
+    let mime = 'video/webm;codecs=vp9';
+    if (!MediaRecorder.isTypeSupported(mime)) mime = 'video/webm;codecs=vp8';
+    if (!MediaRecorder.isTypeSupported(mime)) mime = 'video/webm';
+
+    const recorder = new MediaRecorder(stream, {
+      mimeType: mime,
+      videoBitsPerSecond: 4500000
+    });
+
+    const chunks = [];
+    recorder.ondataavailable = e => {
+      if (e.data && e.data.size) chunks.push(e.data);
+    };
+
+    const stopped = new Promise(resolve => recorder.onstop = resolve);
+    recorder.start(250);
+
+    $('videoBtn').disabled = true;
+    $('videoStatus').textContent =
+      '사진 움직임을 적용해 영상으로 합성 중입니다. 이 탭을 열어두세요.';
+
+    try {
+      for (let i=0; i<7; i++) {
+        const img = await new Promise((resolve,reject) => {
+          const im = new Image();
+          im.onload = () => resolve(im);
+          im.onerror = reject;
+          im.src = photoObjectUrls[i];
+        });
+
+        const start = performance.now();
+
+        while (performance.now() - start < 3000) {
+          const t = Math.min(1, (performance.now() - start) / 3000);
+          const scale = 1.02 + t * 0.10;
+          const cw = canvas.width;
+          const ch = canvas.height;
+          const fit = Math.max(cw/img.width, ch/img.height) * scale;
+          const iw = img.width * fit;
+          const ih = img.height * fit;
+          const drift = (t - 0.5) * 22;
+
+          ctx.fillStyle = '#101522';
+          ctx.fillRect(0,0,cw,ch);
+          ctx.drawImage(img, (cw-iw)/2+drift, (ch-ih)/2, iw, ih);
+
+          const shade = ctx.createLinearGradient(0,ch*.55,0,ch);
+          shade.addColorStop(0,'rgba(0,0,0,0)');
+          shade.addColorStop(1,'rgba(0,0,0,.6)');
+          ctx.fillStyle = shade;
+          ctx.fillRect(0,0,cw,ch);
+
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 28px sans-serif';
+          ctx.fillText('추천 상품',42,ch-92);
+          ctx.font = '20px sans-serif';
+          ctx.fillText(`${String(i+1).padStart(2,'0')} / 07`,42,ch-54);
+
+          $('videoProgress').style.width = `${((i+t)/7)*100}%`;
+          await waitFrame();
+        }
+      }
+
+      recorder.stop();
+      await stopped;
+
+      const blob = new Blob(chunks, {type:mime});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'shortform_21sec.webm';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+
+      $('videoProgress').style.width = '100%';
+      $('videoStatus').textContent =
+        `완료: 약 21초 영상 (${(blob.size/1024/1024).toFixed(1)} MB). 형식: WebM`;
+      addLog('[영상] 약 21초 WebM 영상 생성 완료.', 'good');
+      setStep(3, 'WebM 생성 완료', true);
+      $('statVideos').textContent = '완료';
+
+    } catch (err) {
+      try { recorder.stop(); } catch (e) {}
+      $('videoStatus').textContent =
+        '영상 생성 중 오류가 발생했습니다. 사진 파일 형식을 확인하고 다시 시도해주세요.';
+      addLog(`[영상 오류] ${err.message || err}`, 'warn');
+    } finally {
+      stream.getTracks().forEach(t => t.stop());
+      $('videoBtn').disabled = selectedPhotos.length !== 7;
+    }
+  }
+
+  $('photoFiles').addEventListener('change', e => {
+    photoObjectUrls.forEach(url => URL.revokeObjectURL(url));
+    photoObjectUrls = [];
+
+    selectedPhotos = Array.from(e.target.files || [])
+      .filter(f => f.type.startsWith('image/'))
+      .slice(0,7);
+
+    photoObjectUrls = selectedPhotos.map(f => URL.createObjectURL(f));
+    renderPhotoSlots();
+
+    if ((e.target.files || []).length > 7) {
+      addLog('[사진] 처음 7장만 선택했습니다.');
+    }
+  });
+
+  $('videoBtn').addEventListener('click', renderShortVideo);
+
+  $('urls').addEventListener('input', () => {
+    $('statUrls').textContent = getUrls().length;
+  });
+
+  $('demoBtn').addEventListener('click', () => {
+    $('urls').value = 'https://kr.trip.com/';
+    $('statUrls').textContent = getUrls().length;
+    addLog('[입력] Trip.com 예시 주소를 넣었습니다.');
+  });
+
+  $('clearBtn').addEventListener('click', () => {
+    products = [];
+    logs = ['[시스템] 초기화했습니다.'];
+    $('urls').value = '';
+    ['1','2','3'].forEach(n => setStep(n, '대기', false));
+    $('pipelineLabel').textContent = '실행 대기 중';
+    $('copyBtn').disabled = true;
+    $('jsonBtn').disabled = true;
+    $('captionsBtn').disabled = true;
+    renderProducts();
+    $('log').textContent = logs[0];
+  });
+
+  $('crawlBtn').addEventListener('click', () => {
+    const urls = getUrls();
+
+    if (!urls.length) {
+      addLog('[오류] https://로 시작하는 사이트 주소를 입력해주세요.', 'warn');
+      return;
+    }
+
+    const count = Number($('productCount').value) || 10;
+    const host = new URL(urls[0]).hostname.replace(/^www\./,'');
+
+    products = Array.from({length:count},(_,i) => ({
+      id: String(i+1).padStart(2,'0'),
+      url: urls[0],
+      title: `${host} 상품 후보 ${i+1}`,
+      price: '가격·재고 확인 필요',
+      rankLabel: `데모 순위 ${i+1} · 실제 판매순위 아님`,
+      caption: ''
+    }));
+
+    setStep(1,'데모 완료',true);
+    setStep(2,'사진 선택 대기',false);
+    setStep(3,'영상 제작 대기',false);
+    $('pipelineLabel').textContent = '분석 흐름 미리보기';
+    $('copyBtn').disabled = false;
+    $('jsonBtn').disabled = false;
+    $('captionsBtn').disabled = true;
+
+    addLog('=== 1단계: 사이트 분석 흐름 ===');
+    addLog(`[사이트] ${urls[0]}`);
+    addLog(`[설정] 상품 후보 ${count}개를 표시합니다.`);
+    addLog('[안내] 실제 사이트 크롤링이나 판매순위 검증은 수행하지 않았습니다.', 'warn');
+
+    renderProducts();
+  });
+
+  $('copyBtn').addEventListener('click', () => {
+    if (!products.length) return;
+
+    const tags = $('hashtag').value.trim();
+    const tone = $('tone').value;
+
+    products = products.map(p => {
+      let base;
+
+      if (tone === 'premium') {
+        base = `${p.title}. 구성과 가격을 꼼꼼히 확인하고 나에게 맞는 선택인지 살펴보세요.`;
+      } else if (tone === 'benefit') {
+        base = `추천 아이템 ${p.title}! 구매 전 옵션과 혜택을 확인해보세요.`;
+      } else if (tone === 'short') {
+        base = `오늘의 추천, ${p.title}! 자세한 정보는 상품 페이지에서 확인해보세요.`;
+      } else {
+        base = `눈여겨볼 만한 ${p.title}! 자세한 정보와 옵션을 확인해보세요.`;
+      }
+
+      return {...p, caption:`✨ ${base} ${tags}`.trim()};
+    });
+
+    setStep(2,'완료',true);
+    $('pipelineLabel').textContent = '카피 생성 완료';
+    $('captionsBtn').disabled = false;
+
+    addLog('=== 2단계: 카피라이팅 ===');
+    addLog('[완료] 상품별 예시 카피 문구를 생성했습니다.', 'good');
+    addLog('[안내] 실제 상품명·가격을 읽어온 것이 아닌 예시 문구입니다.', 'warn');
+
+    renderProducts();
+  });
+
+  $('jsonBtn').addEventListener('click', () => {
+    download('products.json', JSON.stringify(products,null,2));
+    addLog('[내보내기] products.json 다운로드를 시작했습니다.', 'good');
+  });
+
+  $('captionsBtn').addEventListener('click', () => {
+    const text = products.map(p =>
+      `[${p.id}] ${p.title}\n${p.url}\n${p.caption}`
+    ).join('\n\n--------------------\n\n');
+
+    download('shortform_captions.txt', text, 'text/plain;charset=utf-8');
+    addLog('[내보내기] 카피 텍스트 다운로드를 시작했습니다.', 'good');
+  });
+
+  renderProducts();
+})();
 </script>
 </body>
 </html>
