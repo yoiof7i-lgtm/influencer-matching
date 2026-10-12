@@ -141,7 +141,7 @@ canvas#renderCanvas { display: none; }
     <section class="panel">
       <div class="panel-head"><h3>01 / 쇼핑 사이트 선택</h3><span>사이트 주소부터 시작</span></div>
       <div class="panel-body">
-        <label class="label" for="urls">분석할 사이트 주소</label>
+        <label class="label" for="urls">분석할 사이트 주소 (trip.com 호텔 목록 페이지)</label>
         <input class="site-input" id="urls" value="https://kr.trip.com/" spellcheck="false" placeholder="https://kr.trip.com/">
 
         <label class="label" for="productCount">살펴볼 상품 수</label>
@@ -150,7 +150,12 @@ canvas#renderCanvas { display: none; }
           <option value="10" selected>상위 10개</option>
           <option value="20">상위 20개</option>
         </select>
-        <div class="help">실제 인기순위와 상품 사진을 자동으로 가져오려면 해당 사이트의 API, 제휴 피드 또는 허용된 데이터 접근 방식이 필요합니다.</div>
+        <div class="help">
+          📌 <b>주소 만드는 법 (30초)</b>: trip.com에서 원하는 도시의 "호텔" 검색 → 목록 페이지가 열리면
+          브라우저 주소창을 그대로 복사해서 붙여넣으세요. (예: 치앙마이 = city=623 형태)
+          검색하지 않은 홈페이지 주소(kr.trip.com)는 상품 목록이 없어 수집이 안 됩니다.<br>
+          🏊 <b>수영장·자쿠지</b> 있는 호텔은 AI가 우선 선택합니다.
+        </div>
 
         <div class="row2">
           <div>

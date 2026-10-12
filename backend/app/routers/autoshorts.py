@@ -19,8 +19,12 @@ def _gemini_call(prompt, images_b64=None):
     if not key:
         return None
     parts = [{"text": prompt}]
-    for b in (images_b64 or [])[:10]:
-        parts.append({"inline_data": {"mime_type": "image/jpeg", "data": b}})
+    # 이미지 과다 첨부 시 503 발생 실측 → 4장으로 제한 + 축소 인코딩
+    for b in (images_b64 or [])[:4]:
+        try:
+            parts.append({"inline_data": {"mime_type": "image/jpeg", "data": b}})
+        except Exception:
+            pass
     body = json.dumps({
         "contents": [{"role": "user", "parts": parts}],
         "generationConfig": {"responseMimeType": "application/json", "temperature": 0.8},
@@ -28,9 +32,19 @@ def _gemini_call(prompt, images_b64=None):
     req = urllib.request.Request(
         "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
         data=body, headers={"Content-Type": "application/json", "x-goog-api-key": key})
-    r = urllib.request.urlopen(req, timeout=90)
+    r = urllib.request.urlopen(req, timeout=150)
     j = json.loads(r.read().decode())
     return ''.join(p.get("text", "") for p in j.get("candidates", [{}])[0].get("content", {}).get("parts", []))
+
+def _retry(fn, n=3, wait=3):
+    for i in range(n):
+        try:
+            return fn()
+        except Exception as e:
+            if i == n - 1:
+                raise
+            import time
+            time.sleep(wait)
 
 def _tts(text, path):
     """gTTS (구글번역 TTS, 무료, 한국어) — 실패 시 None"""
@@ -68,7 +82,7 @@ def _motion_clip(img_path, out_path, dur=3.0, caption=""):
     return out_path if os.path.exists(out_path) else None
 
 @router.get("/make")
-def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None)):
+def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), script: str = Query(None)):
     """URL 하나 → 인기 1위 호텔 숏폼 MP4 (완전자동)"""
     try:
         import shutil
@@ -101,11 +115,26 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None)):
             b64s = []
             for pth in dl:
                 b64s.append(base64.b64encode(open(pth, "rb").read()).decode())
-            script_raw = _gemini_call(
-                '호텔 사진이다. 21초 숏폼 대본을 만들어라. 구성: 훅+7비트(각3초)+CTA. '
-                '규칙: 첫문장 8단어 이내·제품명 금지·단점1개 솔직히·낮은압박CTA. '
-                'JSON만 출력: {"title":"","narrations":["7개, 각 12~20자"],"captions":["7개"]}',
-                b64s)
+            script_raw = script if script else None
+            if not script_raw:
+                try:
+                    script_raw = _retry(lambda: _gemini_call(
+                        '호텔 사진이다. 21초 숏폼 대본을 만들어라. 구성: 훅+7비트(각3초)+CTA. '
+                        '우선규칙: 수영장·자쿠지·루프탑·오션뷰 사진이 있으면 반드시 포함하고 대본에서도 강조(예약하고 싶게). '
+                        '규칙: 첫문장 8단어 이내·제품명 금지·단점1개 솔직히·낮은압박CTA. '
+                        'JSON만 출력: {"title":"","narrations":["7개, 각 12~20자"],"captions":["7개"]}',
+                        b64s))
+                except Exception:
+                    # 사진 첨부 503 → 텍스트 전용 폴백
+                    try:
+                        script_raw = _gemini_call(
+                            f'"{h["name"]}" 호텔(평점{h["score"]}, {h["reviews"]}) 21초 숏폼 대본. '
+                            '훅+7비트(각3초)+CTA. 수영장·자쿠지·루프탑·오션뷰 강조. '
+                            '첫문장 8단어 이내·제품명 금지·단점1개 솔직히. '
+                            'JSON만: {"title":"","narrations":["7개"],"captions":["7개"]}',
+                            None)
+                    except Exception:
+                        script_raw = None
             narrations = ["최고의 호텔을 소개합니다"] * 7
             captions = [""] * 7
             title = h["name"]
