@@ -472,9 +472,18 @@ let CITY_CODES = {};
     addLog(`[사진] ${photoUrls.length}장 수집 완료 → AI 선별 중…`);
     if (!cfgKey) { await applyPhotos(photoUrls.slice(0,14)); return; }
     try {
-      const dl = photoUrls.slice(0,10).map(u => new Promise((res) => {
+      // 로드 실패 시 프록시 경유 재시도 (서버 경유 = CORS 무관)
+      const dl = photoUrls.slice(0,24).map(u => new Promise((res) => {
         const im = new Image(); im.crossOrigin='anonymous';
-        im.onload = () => res(u); im.onerror = () => res(null); im.src = u;
+        im.onload = () => res(u);
+        im.onerror = () => {
+          const px = '/crawl/proxy-img?url=' + encodeURIComponent(u);
+          const im2 = new Image();
+          im2.onload = () => res(px);
+          im2.onerror = () => res(null);
+          im2.src = px;
+        };
+        im.src = u;
       }));
       const okUrls = (await Promise.all(dl)).filter(Boolean);
       addLog(`[사진] ${okUrls.length}/${photoUrls.length}장 로드 성공 → 분류 중…`);
@@ -508,8 +517,14 @@ let CITY_CODES = {};
           if (sel.length === 14) { await applyPhotos(sel); return; }
         }
       }
-      addLog('[사진] AI 선별 실패 → 상위 14장 사용', 'warn');
-      await applyPhotos(okUrls.slice(0,14).length ? okUrls.slice(0,14) : photoUrls.slice(0,14));
+      addLog('[사진] AI 선별 실패 → 전체 수집분에서 14장 구성', 'warn');
+      // okUrls(로드성공분) 우선 + 부족분은 전체 photoUrls에서 보충 (중복 제외)
+      const base = [...okUrls];
+      for (const u of photoUrls) {
+        if (base.length >= 14) break;
+        if (!base.includes(u)) base.push(u);
+      }
+      await applyPhotos(base.slice(0,14));
     } catch(e) {
       addLog('[사진 오류] ' + (e.message||e) + ' → 상위 14장 사용', 'warn');
       await applyPhotos(photoUrls.slice(0,14));
