@@ -151,8 +151,9 @@ def _motion_clip(img_path, out_path, dur=2.5, caption="", idx=0, hook_title=""):
     if caption:
         vf += (
             f",drawtext=text='{esc(caption)}'{fontarg}"
-            ":fontcolor=white:fontsize=58:box=1:boxcolor=black@0.45:boxborderw=18"
-            ":x=(w-tw)/2:y=h-200:borderw=2:bordercolor=black@0.6"
+            ":fontcolor=white:fontsize=58"
+            ":borderw=4:bordercolor=black"
+            ":x=(w-tw)/2:y=h-200"
         )
     # 훅 타이틀: 첫 장면(idx=0)에 상단 큰 제목
     if hook_title:
@@ -193,8 +194,56 @@ def _bgm(path, dur):
     except Exception:
         return False
 
+def _overlay_cta(video_path, out_path, region, total_dur):
+    """전체 80% 위치부터: 큰 훅문구 고정 + 마지막 5초 CTA(깜빡임)"""
+    t0 = 0.0  # 처음부터 끝까지 고정 (주인님 지시)
+    last5 = total_dur * 0.5  # 50% 지점부터 (주인님 지시)
+    font = ""
+    for cand in ["/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+                 "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+                 "/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc"]:
+        if os.path.exists(cand):
+            font = cand
+            break
+    fa = f":fontfile={font}" if font else ""
+    def esc(t):
+        return t.replace(":", "\:").replace("'", "\\\'").replace("%", "\\%")
+    hook = f"{region} 호캉스 이 정도까지 가능?"
+    vf = (
+        # 80%부터 끝까지: 큰 훅문구 (상단 15%)
+        f"drawtext=text='{esc(hook)}'{fa}"
+        f":fontcolor=white:fontsize=76"
+        f":borderw=5:bordercolor=black"
+        f":x=(w-tw)/2:y=h*0.14"
+        f":enable='gte(t,{t0:.2f})'"
+    )
+    # 마지막 5초: CTA 두 줄 (깜빡임: 0.6초 주기 점멸)
+    if last5 > 0:
+        vf += (
+            f",drawtext=text='위치 궁금하신 분들은'{fa}"
+            f":fontcolor=white:fontsize=46"
+            f":borderw=3:bordercolor=black"
+            f":x=(w-tw)/2:y=h*0.24"
+            f":enable='gte(t,{last5:.2f})'"
+            f",drawtext=text='「{region} 호캉스」'{fa}"
+            f":fontcolor=yellow:fontsize=58"
+            f":borderw=4:bordercolor=black"
+            f":x=(w-tw)/2:y=h*0.31"
+            f":alpha='if(lt(mod(t,0.6),0.35),1,0)'"
+            f":enable='gte(t,{last5:.2f})'"
+            f",drawtext=text='댓글로 남겨주세요'{fa}"
+            f":fontcolor=white:fontsize=44"
+            f":borderw=3:bordercolor=black"
+            f":x=(w-tw)/2:y=h*0.40"
+            f":enable='gte(t,{last5:.2f})'"
+        )
+    subprocess.run(["ffmpeg", "-y", "-i", video_path, "-vf", vf,
+                    "-c:v", "libx264", "-preset", "medium", "-crf", "19",
+                    "-c:a", "copy", out_path], capture_output=True, timeout=300)
+    return out_path if os.path.exists(out_path) else None
+
 @router.get("/make")
-def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), script: str = Query(None), photo_urls: str = Query(None), hook: str = Query(None)):
+def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), script: str = Query(None), photo_urls: str = Query(None), hook: str = Query(None), region: str = Query(None)):
     """URL 하나 → 인기 1위 호텔 숏폼 MP4 (완전자동)"""
     try:
         import shutil
@@ -240,7 +289,7 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
                                       '"퇴근하고 당장 누워버리고 싶은 대리만족 호캉스 룸 3초 투어" / "아직도 [지역]에서 숙소 어디 갈지 고민 중이세요?". ')
                     script_raw = _retry(lambda: _gemini_call(
                         f'"{h["name"]}" 호텔(평점{h["score"]}, {h["reviews"]}) 35초 숏폼 대본. '
-                        '사진 순서 고정: 침대룸×3→화장실×2→수영장/자쿠지×2→외관→전망×2→조식→로비/편의×3. '
+                        '사진 순서 고정: 침대룸×3→화장실×2→수영장/자쿠지×2→외관→전망×2→조식→로비/편의×3. 대본·자막에 호텔 이름·지점명 언급 금지(이탈 방지). '
                         '한자·한문 표기 절대 금지(순수 한국어만). 실제 입으로 말하듯 자연스러운 구어체(~해요/~죠, 문어체·명사형 종결 금지). 나레이션 각 10~14자(2.5~3초 분량). '
                         '룸 비트(1~3)는 룸의 확실한 특징만: 통창뷰·가성비·호캉스감 중 사진에서 보이는 것 + 방에서 자쿠지·수영장·바다(해변) 뷰가 보이면 최우선으로 언급. 사진에 없는 촉감·냄새·소리 등은 쓰지 말 것. '
                         + hook_part +
@@ -281,12 +330,9 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
             while len(narrations) < 14:
                 narrations.append("여행에 딱 맞는 숙소예요"); captions.append("여행 추천")
 
-            # 4) 음성 먼저 생성 → 실제 길이 측정 (영상을 음성에 맞춤 — 길이 불일치 근본 해결)
-            voice_path = f"{WORK}/h{rank}_voice.mp3"
-            has_voice = _tts(" ".join(narrations), voice_path)
-            V = _tts_dur(voice_path) if has_voice else 0.0
-            if not has_voice or V <= 0:
-                V = 14 * 2.5  # 음성 실패 시 기본 35초
+            # 4) 음성 제거 (주인님 지시) — 영상 길이는 고정 14×2.5+전환 보정
+            has_voice = False
+            V = 35.0  # 음성 제거 — 고정 35초 기준 (클립당 2.87초)
             XFADE = 0.4
             # 클립당 길이: 크로스페이드 겹침(13회) 보정해서 최종길이 = 음성길이
             clip_dur = (V + 13 * XFADE) / 14
@@ -320,25 +366,25 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
             else:
                 subprocess.run(["ffmpeg", "-y", "-i", clips[0], "-c:v", "libx264", merged],
                                capture_output=True, timeout=120)
-            # 최종: 음성 + BGM 믹스 (영상 길이 기준 — shortest로 음성 잘리지 않게 apad)
+            # 7) BGM만 + CTA 오버레이 (음성 없음 — 주인님 지시)
             final = f"{WORK}/h{rank}_final.mp4"
             bgm = f"{WORK}/h{rank}_bgm.wav"
-            has_bgm = _bgm(bgm, V)
-            if has_voice and has_bgm:
-                subprocess.run(["ffmpeg", "-y", "-i", merged, "-i", voice_path, "-i", bgm,
-                                "-filter_complex",
-                                "[1:a]apad,loudnorm=I=-16:TP=-1.5[nar];"
-                                "[2:a]volume=0.5,apad[bgm];"
-                                "[nar][bgm]amix=inputs=2:duration=first:dropout_transition=2[aout]",
-                                "-map", "0:v", "-map", "[aout]", "-shortest",
-                                "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", final],
+            has_bgm = _bgm(bgm, V if V > 0 else 30)
+            if has_bgm:
+                r = subprocess.run(["ffmpeg", "-y", "-i", merged, "-i", bgm,
+                                "-map", "0:v", "-map", "1:a", "-shortest",
+                                "-c:v", "copy", "-c:a", "aac", "-b:a", "160k", final],
                                capture_output=True, timeout=180)
-            elif has_voice:
-                subprocess.run(["ffmpeg", "-y", "-i", merged, "-i", voice_path,
-                                "-af", "apad,loudnorm=I=-16:TP=-1.5", "-shortest", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", final],
-                               capture_output=True, timeout=120)
+                if r.returncode != 0 or not os.path.exists(final):
+                    import shutil as _sh; _sh.copy(merged, final)
             else:
                 import shutil as _sh; _sh.copy(merged, final)
+            # 8) CTA 오버레이 (80% 위치 훅 + 마지막 5초 깜빡임 CTA)
+            total_dur = clip_dur * 14 - 13 * 0.4
+            region = region or h.get("region") or ""
+            final2 = _overlay_cta(final, f"{WORK}/h{rank}_cta.mp4", region, total_dur)
+            if final2:
+                import shutil as _sh2; _sh2.copy(final2, final)
 
             safe_name = re.sub(r'[^가-힣a-zA-Z0-9]', '_', title)[:20]
             out_name = f"{safe_name}_숏폼.mp4"
@@ -411,7 +457,7 @@ def make_all(hook: str = Query(None), count_per_city: int = Query(1, ge=1, le=2)
             try:
                 import urllib.parse as _up
                 q = _up.quote(f"https://kr.trip.com/hotels/list?city={code}&checkin=2026-10-20&checkout=2026-10-21", safe='')
-                u = f"http://localhost:8000/autoshorts/make?url={q}&count={count_per_city}"
+                u = f"http://localhost:8000/autoshorts/make?url={q}&count={count_per_city}&region={_up.quote(name)}"
                 if hook:
                     u += "&hook=" + _up.quote(hook)
                 req = urllib.request.Request(u, headers={"User-Agent": "internal"})
