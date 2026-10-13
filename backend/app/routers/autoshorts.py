@@ -70,8 +70,45 @@ def _retry(fn, n=3, wait=3):
             import time
             time.sleep(wait)
 
+def _tts_dur(path):
+    """음성 길이(초) 측정"""
+    try:
+        r = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                            "-of", "csv=p=0", path], capture_output=True, timeout=30)
+        return float(r.stdout.decode().strip())
+    except Exception:
+        return 0.0
+
 def _tts(text, path):
-    """gTTS (구글번역 TTS, 무료, 한국어) — 실패 시 None"""
+    """1순위: Gemini TTS (자연스러움, 무료) → 실패 시 gTTS. 반환: 성공여부"""
+    key = os.getenv("GEMINI_API_KEY", "")
+    # Gemini TTS (PCM 24kHz 출력 → WAV 변환)
+    if key:
+        try:
+            body = json.dumps({
+                "contents": [{"role": "user", "parts": [{"text": text}]}],
+                "generationConfig": {"responseModalities": ["AUDIO"],
+                                     "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": "Kore"}}}}
+            }).encode()
+            req = urllib.request.Request(
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent",
+                data=body, headers={"Content-Type": "application/json", "x-goog-api-key": key})
+            r = urllib.request.urlopen(req, timeout=120)
+            j = json.loads(r.read().decode())
+            import base64
+            pcm_b64 = j["candidates"][0]["content"]["parts"][0]["inlineData"]["data"]
+            pcm_path = path + ".pcm"
+            open(pcm_path, "wb").write(base64.b64decode(pcm_b64))
+            # PCM(s16le 24kHz mono) → mp3
+            subprocess.run(["ffmpeg", "-y", "-f", "s16le", "-ar", "24000", "-ac", "1",
+                            "-i", pcm_path, "-c:a", "libmp3lame", "-b:a", "128k", path],
+                           capture_output=True, timeout=60)
+            os.remove(pcm_path)
+            if os.path.exists(path) and os.path.getsize(path) > 1000:
+                return True
+        except Exception:
+            pass
+    # 폴백: gTTS
     try:
         from gtts import gTTS
         gTTS(text=text, lang="ko").save(path)
@@ -204,11 +241,11 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
                     script_raw = _retry(lambda: _gemini_call(
                         f'"{h["name"]}" 호텔(평점{h["score"]}, {h["reviews"]}) 35초 숏폼 대본. '
                         '사진 순서 고정: 침대룸×3→화장실×2→수영장/자쿠지×2→외관→전망×2→조식→로비/편의×3. '
-                        '한자·한문 표기 절대 금지(순수 한국어만). 나레이션 각 8~11자(2.5초 분량). '
+                        '한자·한문 표기 절대 금지(순수 한국어만). 실제 입으로 말하듯 자연스러운 구어체(~해요/~죠, 문어체·명사형 종결 금지). 나레이션 각 10~14자(2.5~3초 분량). '
                         '룸 비트(1~3)는 룸의 확실한 특징만: 통창뷰·가성비·호캉스감 중 사진에서 보이는 것 + 방에서 자쿠지·수영장·바다(해변) 뷰가 보이면 최우선으로 언급. 사진에 없는 촉감·냄새·소리 등은 쓰지 말 것. '
                         + hook_part +
                         '훅+14비트(각2.5초)+CTA. 첫문장 8단어 이내·호텔명 금지·단점1개 솔직히·나레이션은 비트 시간에 맞춰 각 8~11자(2.5초=초당4자). '
-                        'JSON만: {"title":"","narrations":["14개, 각 8~11자"],"captions":["14개, 10자 이내"]}',
+                        'JSON만: {"title":"","narrations":["14개, 각 10~14자"],"captions":["14개, 10자 이내"]}',
                         None))
                 except Exception:
                     # 사진 첨부 503 → 텍스트 전용 폴백
@@ -217,7 +254,7 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
                             f'"{h["name"]}" 호텔(평점{h["score"]}, {h["reviews"]}) 35초 숏폼 대본. '
                             '훅+14비트(각2.5초)+CTA. 수영장·자쿠지·바다(해변)·루프탑·오션뷰 강조. '
                             '첫문장 8단어 이내·제품명 금지·단점1개 솔직히. '
-                            'JSON만: {"title":"","narrations":["14개, 각 8~11자"],"captions":["14개"]}',
+                            'JSON만: {"title":"","narrations":["14개, 각 10~14자"],"captions":["14개"]}',
                             None)
                     except Exception:
                         script_raw = None
@@ -244,20 +281,29 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
             while len(narrations) < 14:
                 narrations.append("여행에 딱 맞는 숙소예요"); captions.append("여행 추천")
 
-            # 4) 음성 (대본 전체 → TTS)
+            # 4) 음성 먼저 생성 → 실제 길이 측정 (영상을 음성에 맞춤 — 길이 불일치 근본 해결)
             voice_path = f"{WORK}/h{rank}_voice.mp3"
             has_voice = _tts(" ".join(narrations), voice_path)
+            V = _tts_dur(voice_path) if has_voice else 0.0
+            if not has_voice or V <= 0:
+                V = 14 * 2.5  # 음성 실패 시 기본 35초
+            XFADE = 0.4
+            # 클립당 길이: 크로스페이드 겹침(13회) 보정해서 최종길이 = 음성길이
+            clip_dur = (V + 13 * XFADE) / 14
+            clip_dur = max(1.8, min(clip_dur, 4.5))  # 상식 범위 (너무 짧/길면 캡)
+            # 최종 예상 길이 = clip_dur*14 - 13*0.4
 
-            # 5) 사진 모션 클립 7개 (자막 번인 — captions 없으면 narration 사용, 자막 항상 표시)
+            # 5) 사진 모션 클립 (동적 길이, 자막+훅)
             clips = []
             for i in range(14):
                 cap = (captions[i] if i < len(captions) else "") or (narrations[i] if i < len(narrations) else "")
-                c = _motion_clip(dl[i], f"{WORK}/h{rank}_c{i}.mp4", 3.0, cap)
+                c = _motion_clip(dl[i], f"{WORK}/h{rank}_c{i}.mp4", clip_dur, cap, idx=i,
+                                 hook_title=hook if i == 0 else "")
                 if c: clips.append(c)
             if len(clips) < 14:
                 continue
 
-            # 6) 합성: 크로스페이드 전환 (0.4초)
+            # 6) 합성: 크로스페이드 (동적 오프셋)
             merged = f"{WORK}/h{rank}_merged.mp4"
             if len(clips) > 1:
                 inputs = []
@@ -265,8 +311,8 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
                     inputs += ["-i", c]
                 fc = ""
                 for i in range(len(clips) - 1):
-                    off = i * (2.5 - 0.4)
-                    fc += f"[{'0' if i==0 else f'v{i}'}][{i+1}:v]xfade=transition=fade:duration=0.4:offset={off}[v{i+1}];"
+                    off = i * (clip_dur - XFADE)
+                    fc += f"[{'0' if i==0 else f'v{i}'}][{i+1}:v]xfade=transition=fade:duration={XFADE}:offset={off:.2f}[v{i+1}];"
                 fc += f"[v{len(clips)-1}]format=yuv420p[vout]"
                 subprocess.run(["ffmpeg", "-y", *inputs, "-filter_complex", fc,
                                 "-map", "[vout]", "-c:v", "libx264", "-preset", "medium", "-crf", "19",
@@ -274,16 +320,15 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
             else:
                 subprocess.run(["ffmpeg", "-y", "-i", clips[0], "-c:v", "libx264", merged],
                                capture_output=True, timeout=120)
-            # 최종: 음성 + BGM 믹스
+            # 최종: 음성 + BGM 믹스 (영상 길이 기준 — shortest로 음성 잘리지 않게 apad)
             final = f"{WORK}/h{rank}_final.mp4"
             bgm = f"{WORK}/h{rank}_bgm.wav"
-            has_bgm = _bgm(bgm, 35)
+            has_bgm = _bgm(bgm, V)
             if has_voice and has_bgm:
-                # 나레이션(메인) + BGM(낮게) 믹스
                 subprocess.run(["ffmpeg", "-y", "-i", merged, "-i", voice_path, "-i", bgm,
                                 "-filter_complex",
                                 "[1:a]apad,loudnorm=I=-16:TP=-1.5[nar];"
-                                "[2:a]volume=0.5[bgm];"
+                                "[2:a]volume=0.5,apad[bgm];"
                                 "[nar][bgm]amix=inputs=2:duration=first:dropout_transition=2[aout]",
                                 "-map", "0:v", "-map", "[aout]", "-shortest",
                                 "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", final],
