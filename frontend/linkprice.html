@@ -91,6 +91,7 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 .video-progress { height: 6px; border-radius: 99px; background: var(--panel2); overflow: hidden; margin-top: 10px; }
 .video-progress span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
 canvas#renderCanvas { display: none; }
+.hookchip.on { background: var(--accent); color: white; border-color: var(--accent); }
 .footer { text-align: center; margin-top: 22px; }
 @media(max-width:850px) {
   .layout { grid-template-columns: 1fr; }
@@ -143,6 +144,19 @@ canvas#renderCanvas { display: none; }
       <div class="panel-body">
         <label class="label">📍 지역 선택 (클릭하면 주소 자동 입력)</label>
         <div id="cityChips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
+
+        <label class="label">🪝 훅(Hook) 스타일 — 첫 화면 문구 (복수 선택)</label>
+        <div id="hookChips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+          <button class="secondary hookchip on" data-hook="exp">🔥 경험·후기형</button>
+          <button class="secondary hookchip" data-hook="info">💡 정보제공형</button>
+          <button class="secondary hookchip" data-hook="empathy">💜 공감형</button>
+          <button class="secondary hookchip" data-hook="q">❓ 질문형</button>
+        </div>
+        <div class="help" style="margin-bottom:12px">
+          기본 문구: 🔥"솔직히 이 방은 [특징] 하나 때문에 또 가고 싶어요" · 💡"[지역] 여행 갈 때 이 가격대 룸 모르면 손해인 이유" · 💜"퇴근하고 당장 누워버리고 싶은 대리만족 호캉스 룸 3초 투어" · ❓"아직도 [지역]에서 숙소 어디 갈지 고민 중이세요?"<br>
+          직접 쓰기: 아래 입력란에 원하는 훅 문구를 적으면 AI가 그대로 사용합니다.
+        </div>
+        <input id="hookCustom" placeholder="직접 훅 문구 입력 (비우면 위 스타일로 AI가 생성)" style="margin-bottom:15px">
 
         <label class="label" for="urls">분석할 사이트 주소 (trip.com 호텔 목록 페이지)</label>
         <input class="site-input" id="urls" value="https://kr.trip.com/" spellcheck="false" placeholder="https://kr.trip.com/">
@@ -239,6 +253,15 @@ canvas#renderCanvas { display: none; }
 </div>
 
 <script>
+// ── 훅 칩 토글 ──
+document.addEventListener('click', e => {
+  const b = e.target.closest('.hookchip');
+  if (b) b.classList.toggle('on');
+});
+function activeHooks(){
+  return [...document.querySelectorAll('.hookchip.on')].map(b => b.dataset.hook);
+}
+
 // ── 지역 선택 칩 (IIFE 밖 독립) ──
 let CITY_CODES = {};
 (async function loadCities(){
@@ -398,7 +421,11 @@ let CITY_CODES = {};
         addLog(`[⚡원클릭] ${p.title} 전 과정 시작 (약 1~2분)`);
         try {
           // 1단계: 대본 (프론트 Gemini — 안정 경로)
-          let Q = '호텔 "'+p.title+'" (평점'+p.rankLabel+') 35초(14비트×2.5초) 숏폼 대본. 수영장·자쿠지·루프탑·오션뷰 최우선 강조. 훅+14비트(각2.5초)+CTA. 첫문장 8단어 이내·호텔명 금지·단점1개 솔직히·낮은압박CTA. JSON만: {"title":"","narrations":["14개, 각 12~20자"],"captions":["14개, 10자 이내"]}';
+          const hooks = activeHooks();
+          const hookNames = {exp:'경험·후기형(솔직히 이 방은 ○○ 하나 때문에 또 가고 싶어요)', info:'정보제공형([지역] 여행 갈 때 이 가격대 룸 모르면 손해인 이유)', empathy:'공감형(퇴근하고 당장 누워버리고 싶은 대리만족 호캉스 룸 3초 투어)', q:'질문형(아직도 [지역]에서 숙소 어디 갈지 고민 중이세요?)'};
+          const hookSel = hooks.map(h => hookNames[h]).join(' / ') || '경험·후기형';
+          const hookCustom = $('hookCustom').value.trim();
+          let Q = '호텔 "'+p.title+'" (평점'+p.rankLabel+') 35초(14비트×2.5초) 숏폼 대본. 수영장·자쿠지·루프탑·오션뷰 최우선 강조. '+(hookCustom ? '훅은 이 문구를 그대로 사용: 「'+hookCustom+'」. ' : '훅은 반드시 이 스타일 중 하나로: '+hookSel+'. [지역]은 실제 지역명으로. ') + '훅 이후 14비트(각2.5초)+CTA. 첫문장 8단어 이내·호텔명 금지·단점1개 솔직히·낮은압박CTA. JSON만: {"title":"","narrations":["14개, 각 12~20자"],"captions":["14개, 10자 이내"]}';
           let aiT = '';
           const aiParts = [{text: Q}];
           // 사진을 AI에게 실제로 보여주기 (룸 특징 읽기) — 선별된 순서대로
@@ -496,7 +523,7 @@ let CITY_CODES = {};
         } catch(e) {}
       }
       if (b64s.length >= 5) {
-        const parts = [{text: '호텔 사진들이다. 각 사진이 무엇인지 보고 아래 구성 그대로 14장을 순서대로 골라라 (규칙, 변경 금지). 절대 규칙: 같은 사진(같은 URL/완전히 동일한 장면)을 두 번 고르지 마라 — 반드시 서로 다른 14장. 구성: [0~2]침대가 보이는 룸사진 3장(서로 다른 각도·객실), [3~4]화장실 2장, [5~6]수영장 또는 자쿠지 2장, [7]건물 전체 외관 1장, [8~9]전망 좋은 사진 2장, [10]조식 1장, [11~13]로비·라운지·편의시설·기타 매력사진 3장. 해당 종류가 없으면 가장 가까운 종류로 대체하되 순서 유지. 응답은 JSON만: {"picks":[14개 인덱스,0부터,중복없음],"types":[14개 분류명]}'}];
+        const parts = [{text: '호텔 사진들이다. 각 사진을 보고 아래 구성 그대로 14장을 순서대로 골라라. 절대 규칙: 같은 사진(동일 장면) 두 번 금지 — 반드시 서로 다른 14장. \n\n★룸사진 선별 기준 (최우선): 다음 3가지 중 하나가 "사진에서 분명하게 보이는" 룸만 고를 것 — ①통창뷰: 창이 크고 바깥 풍경(바다·도시·산)이 잘 보이는 룸 ②가성비: 넓고 깔끔해서 가격 대비 좋아 보이는 룸 ③호캉스감: 고급스럽고 특별해 보이는 룸(디자인 침대·조명·욕조). 어두운 사진, 침대가 일부만 보이는 사진, 뷰가 안 보이는 룸은 피할 것. 룸 선정 시 각 사진이 어떤 기준(통창뷰/가성비/호캉스감)에 해당하는지도 표기. \n\n구성: [0~2]기준에 맞는 침대 룸사진 3장(서로 다른 각도·객실), [3~4]화장실 2장(깨끗하고 잘 보이는 것), [5~6]수영장 또는 자쿠지 2장, [7]건물 전체 외관 1장, [8~9]전망 좋은 사진 2장, [10]조식 1장, [11~13]로비·라운지·편의시설·기타 매력사진 3장. 해당 종류가 없으면 가장 가까운 종류로 대체하되 순서 유지. 응답은 JSON만: {"picks":[14개 인덱스,0부터,중복없음],"types":[14개 분류명],"roomCriteria":[룸3장의 기준:"통창뷰"|"가성비"|"호캉스감"]}'}];
         b64s.forEach(b => parts.push({inline_data:{mime_type:'image/jpeg', data:b}}));
         const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent', {
           method:'POST',
