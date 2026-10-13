@@ -157,7 +157,7 @@ def _bgm(path, dur):
         return False
 
 @router.get("/make")
-def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), script: str = Query(None), photo_urls: str = Query(None)):
+def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), script: str = Query(None), photo_urls: str = Query(None), hook: str = Query(None)):
     """URL 하나 → 인기 1위 호텔 숏폼 MP4 (완전자동)"""
     try:
         import shutil
@@ -197,14 +197,17 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
             if not script_raw:
                 try:
                     # 서버→Gemini 사진첨부는 반복 타임아웃 실측 → 텍스트 전용만 사용
+                    hook_part = (f'훅은 이 문구를 그대로 사용: 「{hook}」. ' if hook
+                                 else '훅은 반드시 아래 4스타일 중 하나([지역]은 실제 지역명): '
+                                      '"솔직히 이 방은 ○○ 하나 때문에 또 가고 싶어요" / "[지역] 여행 갈 때 이 가격대 룸 모르면 손해인 이유" / '
+                                      '"퇴근하고 당장 누워버리고 싶은 대리만족 호캉스 룸 3초 투어" / "아직도 [지역]에서 숙소 어디 갈지 고민 중이세요?". ')
                     script_raw = _retry(lambda: _gemini_call(
                         f'"{h["name"]}" 호텔(평점{h["score"]}, {h["reviews"]}) 35초 숏폼 대본. '
                         '사진 순서 고정: 침대룸×3→화장실×2→수영장/자쿠지×2→외관→전망×2→조식→로비/편의×3. '
-                        '한자·한문 표기 절대 금지(순수 한국어만). 나레이션 각 8~11자(2.5초 분량). 룸 비트(1~3)는 룸의 확실한 특징만: 통창뷰·가성비·호캉스감 중 사진에서 보이는 것 + 방에서 자쿠지·수영장·바다(해변) 뷰가 보이면 최우선으로 언급. 사진에 없는 촉감·냄새·소리 등은 쓰지 말 것. ' 
-                        f'훅은 반드시 아래 4스타일 중 하나([지역]은 실제 지역명): '
-                        '"솔직히 이 방은 ○○ 하나 때문에 또 가고 싶어요" / "[지역] 여행 갈 때 이 가격대 룸 모르면 손해인 이유" / '
-                        '"퇴근하고 당장 누워버리고 싶은 대리만족 호캉스 룸 3초 투어" / "아직도 [지역]에서 숙소 어디 갈지 고민 중이세요?". '
-                        '훅+14비트(각2.5초)+CTA. 첫문장 8단어 이내·호텔명 금지·단점1개 솔직히·한자·한문 표기 절대 금지(순수 한국어만)·나레이션은 비트 시간에 맞춰 각 8~11자(2.5초=초당4자). '
+                        '한자·한문 표기 절대 금지(순수 한국어만). 나레이션 각 8~11자(2.5초 분량). '
+                        '룸 비트(1~3)는 룸의 확실한 특징만: 통창뷰·가성비·호캉스감 중 사진에서 보이는 것 + 방에서 자쿠지·수영장·바다(해변) 뷰가 보이면 최우선으로 언급. 사진에 없는 촉감·냄새·소리 등은 쓰지 말 것. '
+                        + hook_part +
+                        '훅+14비트(각2.5초)+CTA. 첫문장 8단어 이내·호텔명 금지·단점1개 솔직히·나레이션은 비트 시간에 맞춰 각 8~11자(2.5초=초당4자). '
                         'JSON만: {"title":"","narrations":["14개, 각 8~11자"],"captions":["14개, 10자 이내"]}',
                         None))
                 except Exception:
@@ -319,6 +322,48 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
         raise
     except Exception as e:
         raise HTTPException(502, f"자동생성 실패: {e}")
+
+@router.get("/all")
+def make_all(hook: str = Query(None), count_per_city: int = Query(1, ge=1, le=2)):
+    """10개 지역 각각 1개(기본) 호텔 숏폼 전부 자동 제작 — 총 10개 MP4 저장 (10~20분 소요)"""
+    try:
+        from ..routers.crawl import CITIES
+        cities = [(c["name"], c["code"]) for c in CITIES]
+        # 제주시/제주도 중복 제거
+        seen_code = set()
+        uniq = []
+        for n, c in cities:
+            if c in seen_code:
+                continue
+            seen_code.add(c)
+            uniq.append((n, c))
+        results = []
+        errors = []
+        for name, code in uniq:
+            try:
+                import urllib.parse as _up
+                q = _up.quote(f"https://kr.trip.com/hotels/list?city={code}&checkin=2026-10-20&checkout=2026-10-21", safe='')
+                u = f"http://localhost:8000/autoshorts/make?url={q}&count={count_per_city}"
+                if hook:
+                    u += "&hook=" + _up.quote(hook)
+                req = urllib.request.Request(u, headers={"User-Agent": "internal"})
+                r = urllib.request.urlopen(req, timeout=560)
+                j = json.loads(r.read().decode())
+                for rr in j.get("results", []):
+                    results.append({"city": name, **rr})
+            except Exception as e:
+                errors.append({"city": name, "error": str(e)[:100]})
+        return {"total": len(results), "results": results, "errors": errors,
+                "files": [r["video"] for r in results]}
+    except Exception as e:
+        raise HTTPException(502, f"전체 생성 실패: {e}")
+
+@router.get("/all-status")
+def all_status():
+    """저장된 전체 숏폼 파일 목록 (진행상황 확인용)"""
+    import glob
+    files = sorted(glob.glob(f"{OUTDIR}/*.mp4"), key=os.path.getmtime, reverse=True)
+    return {"count": len(files), "files": [os.path.basename(f) for f in files[:30]]}
 
 @router.get("/download/{name}")
 def download(name: str):
