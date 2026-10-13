@@ -147,14 +147,7 @@ def _motion_clip(img_path, out_path, dur=2.5, caption="", idx=0, hook_title=""):
     fontarg = f":fontfile={font}" if font else ""
     def esc(t):
         return t.replace(":", "\:").replace("'", "\\\'").replace("%", "\\%")
-    # 자막: 하단, 반투명 박스+테두리
-    if caption:
-        vf += (
-            f",drawtext=text='{esc(caption)}'{fontarg}"
-            ":fontcolor=white:fontsize=58"
-            ":borderw=4:bordercolor=black"
-            ":x=(w-tw)/2:y=h-200"
-        )
+    # 하단 자막 제거 (주인님 지시 — 훅+CTA만 표시)
     # 훅 타이틀: 첫 장면(idx=0)에 상단 큰 제목
     if hook_title:
         vf += (
