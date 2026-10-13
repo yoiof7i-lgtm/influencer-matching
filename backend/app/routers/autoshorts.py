@@ -162,9 +162,27 @@ def _motion_clip(img_path, out_path, dur=2.5, caption="", idx=0, hook_title=""):
         capture_output=True, timeout=180)
     return out_path if os.path.exists(out_path) else None
 
+def _user_bgm(dur):
+    """주인님 자작 음악 우선: /code/bgm/에 mp3 있으면 앞 dur초 잘라 반환"""
+    import glob as _g
+    files = _g.glob("/code/bgm/*.mp3") + _g.glob("/code/bgm/*.wav") + _g.glob("/code/bgm/*.m4a")
+    return files[0] if files else None
+
 def _bgm(path, dur):
-    """부드러운 배경음악 생성 (사인 코드 진행 — 저음 잔잔한 분위기)"""
+    """1순위: 주인님 자작 음악 (bgm 폴더) → 없으면 사인 코드 생성"""
     # Am→F→C→G 진행 느낌: 주파수 교차 페이드 (단순 합성)
+    try:
+        # 자작 음악이 있으면 그걸로 (앞부분 35초 컷 + 페이드)
+        src = _user_bgm(dur)
+        if src:
+            subprocess.run(["ffmpeg", "-y", "-i", src, "-t", str(dur),
+                            "-af", f"volume=0.5,afade=t=in:d=1.5,afade=t=out:st={dur-2.5}:d=2.5",
+                            "-c:a", "pcm_s16le", path],
+                           capture_output=True, timeout=60)
+            if os.path.exists(path) and os.path.getsize(path) > 10000:
+                return True
+    except Exception:
+        pass
     import math
     try:
         seg = dur / 4
