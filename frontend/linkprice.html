@@ -145,7 +145,7 @@ canvas#renderCanvas { display: none; }
         <label class="label">📍 지역 선택 (클릭하면 주소 자동 입력)</label>
         <div id="cityChips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
         <button class="primary" id="allBtn" style="background:linear-gradient(135deg,#e85ba0,#a35bdf);width:100%;padding:14px">
-          🚀 10개 지역 전체 자동제작 (각 지역 1개씩 · 총 10개 · 약 15~25분)
+          🚀 지역을 먼저 선택하세요 (지역 클릭 = 선택)
         </button>
         <div class="video-progress" style="margin:10px 0"><span id="allProgress"></span></div>
         <div class="help" id="allStatus" style="margin-bottom:12px">클릭하면 10개 지역 순서대로 전부 자동 제작됩니다.</div>
@@ -276,20 +276,30 @@ let CITY_CODES = {};
     if (!box) return;
     box.innerHTML = j.cities.map(c => {
       CITY_CODES[c.name] = c.code;
-      return '<button class="secondary" style="padding:8px 12px" data-city="'+c.name+'">'+c.name+'</button>';
+      return '<button class="secondary" style="padding:8px 12px" data-city="'+c.name+'" data-code="'+c.code+'">'+c.name+'</button>';
     }).join('');
+    // 다중선택 토글 (여러 지역 체크 → 전체 자동제작 대상)
     box.querySelectorAll('[data-city]').forEach(b =>
       b.addEventListener('click', () => {
-        const name = b.dataset.city;
-        const code = CITY_CODES[name];
-        const urlEl = document.getElementById('urls');
-        urlEl.value = 'https://kr.trip.com/hotels/list?city='+code+'&checkin=2026-10-20&checkout=2026-10-21';
-        const su = document.getElementById('statUrls');
-        if (su) su.textContent = 1;
-        // IIFE 내 addLog 접근 불가 → 로그 요소 직접 갱신
+        b.classList.toggle('on');
+        // 선택된 지역 수 갱신
+        const n = box.querySelectorAll('.on').length;
+        const ab = document.getElementById('allBtn');
+        if (ab) ab.textContent = n > 0
+          ? `🚀 선택 지역 자동제작 (${n}개 지역 × 1개 호텔 · 약 ${n*2}분)`
+          : '🚀 지역을 먼저 선택하세요 (지역 클릭 = 선택)';
+        // 단일 선택 클릭이면 주소도 자동 입력 (1번 지역 분석용)
+        if (n === 0 || b.classList.contains('on')) {
+          const urlEl = document.getElementById('urls');
+          urlEl.value = 'https://kr.trip.com/hotels/list?city='+b.dataset.code+'&checkin=2026-10-20&checkout=2026-10-21';
+          const su = document.getElementById('statUrls');
+          if (su) su.textContent = 1;
+        }
         const logEl = document.getElementById('log');
-        if (logEl) logEl.innerHTML += '<div class="good">[지역] '+name+' 선택 (city='+code+') → [① 사이트 분석 시작] 누르세요</div>';
-        logEl.scrollTop = logEl.scrollHeight;
+        if (logEl && b.classList.contains('on')) {
+          logEl.innerHTML += '<div class="good">[지역] '+b.dataset.city+' 선택됨 (총 '+n+'개)</div>';
+          logEl.scrollTop = logEl.scrollHeight;
+        }
       })
     );
   }catch(e){}
@@ -789,7 +799,15 @@ let CITY_CODES = {};
     }, 5000);
     try {
       const hook = hookCustomEl.value.trim();
-      const u = '/autoshorts/all?count_per_city=1' + (hook ? '&hook=' + encodeURIComponent(hook) : '');
+      const selCodes = [...document.querySelectorAll('#cityChips .on')].map(b => b.dataset.code);
+      if (!selCodes.length) {
+        alert('먼저 지역을 클릭해서 선택하세요 (여러 개 선택 가능)');
+        delete $('allBtn').dataset.running;
+        $('allBtn').disabled = false;
+        return;
+      }
+      addLog('[🚀선택지역] ' + selCodes.length + '개 지역 제작 시작');
+      const u = '/autoshorts/all?count_per_city=1&cities_sel=' + encodeURIComponent(selCodes.join(',')) + (hook ? '&hook=' + encodeURIComponent(hook) : '');
       const res = await fetch(u);
       const j = await res.json();
       clearInterval(poll);

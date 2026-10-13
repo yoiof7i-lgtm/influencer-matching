@@ -344,12 +344,15 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
         raise HTTPException(502, f"자동생성 실패: {e}")
 
 @router.get("/all")
-def make_all(hook: str = Query(None), count_per_city: int = Query(1, ge=1, le=2)):
-    """10개 지역 각각 1개(기본) 호텔 숏폼 전부 자동 제작 — 총 10개 MP4 저장 (10~20분 소요)"""
+def make_all(hook: str = Query(None), count_per_city: int = Query(1, ge=1, le=2), cities_sel: str = Query(None)):
+    """지역 선택 자동 제작 — cities_sel(쉼표 구분 코드) 지정 시 선택 지역만, 없으면 전체"""
     try:
         from ..routers.crawl import CITIES
         cities = [(c["name"], c["code"]) for c in CITIES]
-        # 제주시/제주도 중복 제거
+        if cities_sel:
+            want = [x.strip() for x in cities_sel.split(",") if x.strip()]
+            cities = [(n, c) for n, c in cities if c in want]
+        # 코드 중복 제거 (같은 코드 두 번 생성 방지)
         seen_code = set()
         uniq = []
         for n, c in cities:
