@@ -158,7 +158,7 @@ def _motion_clip(img_path, out_path, dur=2.5, caption="", idx=0, hook_title=""):
     subprocess.run(
         ["ffmpeg", "-y", "-loop", "1", "-i", img_path, "-t", str(dur),
          "-vf", vf, "-an", "-c:v", "libx264", "-preset", "slow",
-         "-crf", "18", "-pix_fmt", "yuv420p", out_path],
+         "-crf", "16", "-profile:v", "high", "-pix_fmt", "yuv420p", out_path],
         capture_output=True, timeout=180)
     return out_path if os.path.exists(out_path) else None
 
@@ -249,7 +249,7 @@ def _overlay_cta(video_path, out_path, region, total_dur):
             f":enable='gte(t,{last5:.2f})'"
         )
     subprocess.run(["ffmpeg", "-y", "-i", video_path, "-vf", vf,
-                    "-c:v", "libx264", "-preset", "medium", "-crf", "19",
+                    "-c:v", "libx264", "-preset", "slow", "-crf", "16", "-profile:v", "high",
                     "-c:a", "copy", out_path], capture_output=True, timeout=300)
     return out_path if os.path.exists(out_path) else None
 
@@ -372,7 +372,7 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
                     fc += f"[{'0' if i==0 else f'v{i}'}][{i+1}:v]xfade=transition=fade:duration={XFADE}:offset={off:.2f}[v{i+1}];"
                 fc += f"[v{len(clips)-1}]format=yuv420p[vout]"
                 subprocess.run(["ffmpeg", "-y", *inputs, "-filter_complex", fc,
-                                "-map", "[vout]", "-c:v", "libx264", "-preset", "medium", "-crf", "19",
+                                "-map", "[vout]", "-c:v", "libx264", "-preset", "slow", "-crf", "16", "-profile:v", "high",
                                 merged], capture_output=True, timeout=420)
             else:
                 subprocess.run(["ffmpeg", "-y", "-i", clips[0], "-c:v", "libx264", merged],

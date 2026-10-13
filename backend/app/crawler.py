@@ -48,10 +48,15 @@ def list_hotels(city: str = "623", count: int = 10, checkin="2026-10-20", checko
     return hotels[:count]
 
 def hotel_photos(hotel_id: str, limit: int = 20):
+    """호텔 제공 사진만 (리뷰어 사진·프로필 아이콘 제외 — 주인님 지시)"""
     html = _fetch(f"https://kr.trip.com/hotels/detail/?hotelId={hotel_id}")
     payload = _payload(html)
+    # 리뷰 섹션 시작 이전의 이미지만 = 호텔 제공 사진
+    cm = re.search(r'isTripComment', payload)
+    cut = cm.start() if cm else len(payload)
     imgs = list(dict.fromkeys(
-        re.findall(r'(https://ak-d\.tripcdn\.com/images/[^"\\,\s\[\]]+?\.jpg)', payload)))
+        u for u in re.findall(r'(https://ak-d\.tripcdn\.com/images/[^"\\,\s\[\]]+?\.jpg)', payload)
+        if payload.find(u) < cut))
     # 같은 사진이 크기만 다른 URL로 중복됨 (실측: 212 URL = 86 고유) → 이미지ID 기준 고유화
     unique, seen = [], set()
     for u in imgs:
@@ -60,5 +65,7 @@ def hotel_photos(hotel_id: str, limit: int = 20):
         if key in seen:
             continue
         seen.add(key)
-        unique.append(u)
+        # 최고 화질 URL 변환: _Z_1440_2560 (9:16 고해상도 — 실측 4.5배 데이터)
+        big = re.sub(r'_[A-Z]_\d+_\d+[^.]*\.jpg', '_Z_1440_2560_R50_Q90.jpg', u)
+        unique.append(big if big != u else u)
     return unique[:limit]
