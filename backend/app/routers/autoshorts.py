@@ -307,12 +307,32 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
             import shutil as _sh2
             os.makedirs(OUTDIR, exist_ok=True)
             _sh2.copy(final, f"{OUTDIR}/{out_name}")
-            # 대본 텍스트도 저장
+            # 대본 + 인스타 게시물 캡션/태그 저장 (복붙으로 바로 포스팅 가능)
+            cap_raw = None
+            try:
+                cap_raw = _gemini_call(
+                    f'"{h["name"]}" 호텔 숏폼 릴스 게시물 캡션 작성. 대본: {" ".join(narrations[:5])}. '
+                    '규칙: 1인칭 솔직후기 톤(~해요) 3~5문장 + 이모지 3개 + 줄바꿈, '
+                    '해시태그 12개(지역·여행·호텔·숙소 조합, #제주여행 스타일). '
+                    'JSON만: {"caption":"","tags":["#태그 12개"]}',
+                    None)
+            except Exception:
+                pass
+            cap_txt, tags = f"{title}", []
+            if cap_raw:
+                try:
+                    cj = json.loads(re.sub(r'```json|```', '', cap_raw).strip())
+                    cap_txt, tags = cj.get("caption", cap_txt), cj.get("tags", [])
+                except Exception:
+                    pass
             with open(f"{OUTDIR}/{safe_name}_대본.txt", "w", encoding="utf-8") as tf:
                 tf.write(f"호텔: {h['name']} (평점 {h['score']}, {h['reviews']})\n제목: {title}\n\n")
                 for i, (nn, cc) in enumerate(zip(narrations, captions)):
                     tf.write(f"[{i+1}] {nn}\n    자막: {cc}\n")
-                tf.write(f"\n[다운로드] /autoshorts/download/{out_name}\n")
+                tf.write("\n═══ 인스타 릴스 게시물 (아래 복붙) ═══\n\n")
+                tf.write(f"{cap_txt}\n\n")
+                tf.write(" ".join(tags))
+                tf.write(f"\n\n═══ \n[영상] {out_name} / 35초 1080x1920 / 바로 릴스 업로드 가능\n")
 
         if not results:
             raise HTTPException(502, "숏폼 생성 실패 (사진/영상 단계 오류)")
