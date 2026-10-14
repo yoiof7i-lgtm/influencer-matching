@@ -27,10 +27,14 @@ def list_hotels(city: str = "623", count: int = 10, checkin="2026-10-20", checko
         price = re.search(r'"price":(\d+),"currency"', w)
         score = re.search(r'"commentScore":"([\d.]+)"', w)
         rev = re.search(r'"commenterNumber":"([^"]+)"', w)
+        # 할인율 (discountTags의 "48% 할인" 등)
+        dis = re.search(r'"discountTags":\[\{"tagTitle":"(\d+)%\s*할인"', w)
+        disc = int(dis.group(1)) if dis else 0
         img = re.search(r'"(https://ak-d\.tripcdn\.com/images/[^"]+?\.jpg)"',
                         payload[max(0, m.start()-2000):m.start()+3000])
         hotels.append({
             "id": hid, "name": name.group(1),
+            "discount": disc,
             "price": int(price.group(1)) if price else 0,
             "score": float(score.group(1)) if score else 0.0,
             "reviews": rev.group(1) if rev else "",
@@ -43,7 +47,8 @@ def list_hotels(city: str = "623", count: int = 10, checkin="2026-10-20", checko
     import re as _re
     def pop(h):
         n = _re.sub(r"[^\d]", "", h["reviews"]) or "0"
-        return h["score"] * int(n)
+        base = h["score"] * int(n)
+        return (h["discount"] * 1_000_000) + base  # 할인율 있으면 압도적 우선
     hotels.sort(key=pop, reverse=True)
     return hotels[:count]
 

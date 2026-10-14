@@ -146,7 +146,9 @@ def _motion_clip(img_path, out_path, dur=2.5, caption="", idx=0, hook_title=""):
             break
     fontarg = f":fontfile={font}" if font else ""
     def esc(t):
-        return t.replace(":", "\:").replace("'", "\\\'").replace("%", "\\%")
+        t = t.replace("%", "%%")   # drawtext의 % 확장 방지
+        t = t.replace(":", "\\:")  # drawtext 옵션 구분자 이스케이프
+        return t.replace("'", "\\'")
     # 하단 자막 제거 (주인님 지시 — 훅+CTA만 표시)
     # 훅 타이틀: 첫 장면(idx=0)에 상단 큰 제목
     if hook_title:
@@ -205,10 +207,10 @@ def _bgm(path, dur):
     except Exception:
         return False
 
-def _overlay_cta(video_path, out_path, region, total_dur):
-    """전체 80% 위치부터: 큰 훅문구 고정 + 마지막 5초 CTA(깜빡임)"""
-    t0 = 0.0  # 처음부터 끝까지 고정 (주인님 지시)
-    last5 = total_dur * 0.5  # 50% 지점부터 (주인님 지시)
+def _overlay_cta(video_path, out_path, region, total_dur, discount=0):
+    """훅(처음부터) + 50%부터 할인CTA + 깜빡임"""
+    t0 = 0.0
+    last5 = total_dur * 0.5
     font = ""
     for cand in ["/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
                  "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
@@ -218,7 +220,9 @@ def _overlay_cta(video_path, out_path, region, total_dur):
             break
     fa = f":fontfile={font}" if font else ""
     def esc(t):
-        return t.replace(":", "\:").replace("'", "\\\'").replace("%", "\\%")
+        t = t.replace("%", "%%")   # drawtext % 확장 방지
+        t = t.replace(":", "\\:")   # 옵션 구분자 이스케이프
+        return t.replace("'", "\\'")
     hook = f"{region} 호캉스 이 정도까지 가능?"
     vf = (
         # 80%부터 끝까지: 큰 훅문구 (상단 15%)
@@ -228,24 +232,30 @@ def _overlay_cta(video_path, out_path, region, total_dur):
         f":x=(w-tw)/2:y=h*0.14"
         f":enable='gte(t,{t0:.2f})'"
     )
-    # 마지막 5초: CTA 두 줄 (깜빡임: 0.6초 주기 점멸)
+    # 50%부터: 할인 + CTA (깜빡임: 0.6초 주기 점멸)
     if last5 > 0:
+        disc_line = f"오늘 특별 {discount}％ 할인" if discount else "오늘 특별 할인 진행 중"  # % 표기
         vf += (
-            f",drawtext=text='위치 궁금하신 분들은'{fa}"
-            f":fontcolor=white:fontsize=46"
-            f":borderw=3:bordercolor=black"
-            f":x=(w-tw)/2:y=h*0.24"
-            f":enable='gte(t,{last5:.2f})'"
-            f",drawtext=text='「{region} 호캉스」'{fa}"
-            f":fontcolor=yellow:fontsize=58"
+            f",drawtext=text='{esc(disc_line)}'{fa}"
+            f":fontcolor=yellow:fontsize=54"
             f":borderw=4:bordercolor=black"
-            f":x=(w-tw)/2:y=h*0.31"
-            f":alpha='if(lt(mod(t,0.6),0.35),1,0)'"
+            f":x=(w-tw)/2:y=h*0.22"
             f":enable='gte(t,{last5:.2f})'"
-            f",drawtext=text='댓글로 남겨주세요'{fa}"
+            f",drawtext=text='위치 궁금하신 분들은'{fa}"
             f":fontcolor=white:fontsize=44"
             f":borderw=3:bordercolor=black"
-            f":x=(w-tw)/2:y=h*0.40"
+            f":x=(w-tw)/2:y=h*0.29"
+            f":enable='gte(t,{last5:.2f})'"
+            f",drawtext=text='「{region} 호캉스」 라고'{fa}"
+            f":fontcolor=yellow:fontsize=54"
+            f":borderw=4:bordercolor=black"
+            f":x=(w-tw)/2:y=h*0.36"
+            f":alpha='if(lt(mod(t,0.6),0.35),1,0)'"
+            f":enable='gte(t,{last5:.2f})'"
+            f",drawtext=text='댓글로 남겨주세요. 할인링크 보내드려요.'{fa}"
+            f":fontcolor=white:fontsize=40"
+            f":borderw=3:bordercolor=black"
+            f":x=(w-tw)/2:y=h*0.43"
             f":enable='gte(t,{last5:.2f})'"
         )
     subprocess.run(["ffmpeg", "-y", "-i", video_path, "-vf", vf,
@@ -393,7 +403,7 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
             # 8) CTA 오버레이 (80% 위치 훅 + 마지막 5초 깜빡임 CTA)
             total_dur = clip_dur * 14 - 13 * 0.4
             region = region or h.get("region") or ""
-            final2 = _overlay_cta(final, f"{WORK}/h{rank}_cta.mp4", region, total_dur)
+            final2 = _overlay_cta(final, f"{WORK}/h{rank}_cta.mp4", region, total_dur, discount=h.get("discount", 0))
             if final2:
                 import shutil as _sh2; _sh2.copy(final2, final)
 
@@ -401,7 +411,7 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
             out_name = f"{safe_name}_숏폼.mp4"
             results.append({
                 "rank": rank+1, "hotel": h["name"], "title": title,
-                "score": h["score"], "reviews": h["reviews"],
+                "score": h["score"], "reviews": h["reviews"], "discount": h.get("discount", 0),
                 "video": out_name,
                 "narrations": narrations,
             })
@@ -409,24 +419,11 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
             import shutil as _sh2
             os.makedirs(OUTDIR, exist_ok=True)
             _sh2.copy(final, f"{OUTDIR}/{out_name}")
-            # 대본 + 인스타 게시물 캡션/태그 저장 (복붙으로 바로 포스팅 가능)
-            cap_raw = None
-            try:
-                cap_raw = _gemini_call(
-                    f'"{h["name"]}" 호텔 숏폼 릴스 게시물 캡션 작성. 대본: {" ".join(narrations[:5])}. '
-                    '규칙: 1인칭 솔직후기 톤(~해요) 3~5문장 + 이모지 3개 + 줄바꿈, '
-                    '해시태그 12개(지역·여행·호텔·숙소 조합, #제주여행 스타일). '
-                    'JSON만: {"caption":"","tags":["#태그 12개"]}',
-                    None)
-            except Exception:
-                pass
-            cap_txt, tags = f"{title}", []
-            if cap_raw:
-                try:
-                    cj = json.loads(re.sub(r'```json|```', '', cap_raw).strip())
-                    cap_txt, tags = cj.get("caption", cap_txt), cj.get("tags", [])
-                except Exception:
-                    pass
+            # 캡션: 별도 AI 호출 제거 (토큰 절감) — 대본에서 자동 조합
+            cap_txt = f"{region or ''} 호캉스 이 정도까지 가능? {narrations[0] if narrations else ''} {narrations[1] if len(narrations)>1 else ''} 지금 저장하고 가세요!"
+            tags = [f"#{region or '제주'}여행", f"#{region or '제주'}호캉스", "#호텔추천", "#숙소추천",
+                    "#가성비호텔", "#여행스타그램", "#국내여행", "#호캉스", "#오션뷰", "#리조트",
+                    f"#{region or '제주'}숙소", "#여행꿀팁"]
             with open(f"{OUTDIR}/{safe_name}_대본.txt", "w", encoding="utf-8") as tf:
                 tf.write(f"호텔: {h['name']} (평점 {h['score']}, {h['reviews']})\n제목: {title}\n\n")
                 for i, (nn, cc) in enumerate(zip(narrations, captions)):
