@@ -15,6 +15,40 @@ def _dl(url, path):
     open(path, "wb").write(data)
     return path
 
+def _is_avatar_img(path):
+    """trip.com 기본 아바타(흰 배경+단색 보라/파랑 실루엣 사람) 픽셀 검사 — URL 키워드 필터 우회분 차단"""
+    try:
+        from PIL import Image
+        im = Image.open(path).convert("RGB")
+        im.thumbnail((100, 100))
+        px = list(im.getdata())
+        n = len(px)
+        white = sum(1 for p in px if min(p) > 225)
+        # 실루엣 색: 흰 배경 외 나머지 픽셀의 색상(hue)이 한 부류에 집중되면 아바타
+        # (보라·파랑·노랑·회색 등 어떤 실루엣 색이든 잡음)
+        from colorsys import rgb_to_hsv
+        fg = [p for p in px if min(p) <= 225]  # 흰 배경 아닌 픽셀 = 실루엣 후보
+        if white > 0.25 and 0.10 < len(fg) / n < 0.65:
+            hues = {}
+            for r, g, b in fg:
+                mx, mn = max(r, g, b), min(r, g, b)
+                if mx - mn < 25:  # 무채색 → 아바타 판정 대상 아님 (밤 풍경 사진 보호)
+                    continue
+                h, s, v = rgb_to_hsv(r / 255, g / 255, b / 255)
+                hues[int(h * 12)] = hues.get(int(h * 12), 0) + 1  # 30도 단위 부류
+            colored = sum(hues.values())
+            if colored > len(fg) * 0.5:  # 채색 실루엣이 실루엣의 절반 이상
+                dominant = max(hues.values()) / colored if colored else 0
+                if dominant > 0.75:  # 채색의 75% 이상이 같은 색 부류 = 단색 실루엣
+                    return True
+        # 극단: 전체가 거의 한 가지 색 (완전 단색 이미지)
+        colors = len(set((r // 24, g // 24, b // 24) for r, g, b in px))
+        if colors < 6:
+            return True
+        return False
+    except Exception:
+        return False
+
 def _gemini_call(prompt, images_b64=None):
     """Gemini(사진첨부 불안정 실측) — 실패 시 OpenRouter 비전 모델 폴백"""
     key = os.getenv("GEMINI_API_KEY", "")
@@ -311,12 +345,18 @@ def _make_body(url: str, count: int, city: str, script: str, photo_urls: str, ho
                 print(f"[make] {h.get('name','?')[:12]}: photos={len(photos)} < 7 skip", flush=True)
                 continue
             dl = []
+            skipped_avatar = 0
             for i, pu in enumerate(photos):
                 try:
-                    dl.append(_dl(pu, f"{WORK}/h{rank}_p{i}.jpg"))
+                    p = _dl(pu, f"{WORK}/h{rank}_p{i}.jpg")
+                    if _is_avatar_img(p):  # 아바타/플레이스홀더 픽셀 검사 (주인님 지시)
+                        skipped_avatar += 1
+                        os.remove(p)
+                        continue
+                    dl.append(p)
                 except Exception:
                     pass
-            print(f"[make] {h['name'][:12]}: photos={len(photos)} dl={len(dl)}", flush=True)
+            print(f"[make] {h['name'][:12]}: photos={len(photos)} dl={len(dl)} avatar_skip={skipped_avatar}", flush=True)
             if len(dl) < 7:
                 print(f"[make] {h.get('name','?')[:12]}: dl={len(dl)} < 7 skip", flush=True)
                 continue
