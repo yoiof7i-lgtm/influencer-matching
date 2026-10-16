@@ -27,16 +27,13 @@ def list_hotels(city: str = "623", count: int = 10, checkin="2026-10-20", checko
         price = re.search(r'"price":(\d+),"currency"', w)
         score = re.search(r'"commentScore":"([\d.]+)"', w)
         rev = re.search(r'"commenterNumber":"([^"]+)"', w)
-        # 할인율: discountTags 전체에서 "특별할인"/"첫 예약 특가" 등 % 숫자 추출 (최고값)
+        # 할인율: % 숫자가 있는 태그만 인식 (주인님 지시: 숫자 없는 태그는 선택하지 않음)
         disc = 0
         for tagm in re.finditer(r'"tagTitle":"([^"]*)"', w):
             tag = tagm.group(1)
-            if ("할인" in tag) or ("특가" in tag):
-                pm = re.search(r'(\d+)\s*%', tag)
-                if pm:
-                    disc = max(disc, int(pm.group(1)))
-                elif disc == 0:
-                    disc = 1  # % 숫자 없는 특가 태그 (특별할인 등) — 최소 플래그
+            pm = re.search(r'(\d+)\s*%', tag)
+            if pm:
+                disc = max(disc, int(pm.group(1)))
         img = re.search(r'"(https://ak-d\.tripcdn\.com/images/[^"]+?\.jpg)"',
                         payload[max(0, m.start()-2000):m.start()+3000])
         hotels.append({

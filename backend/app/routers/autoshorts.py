@@ -383,7 +383,9 @@ def _make_body(url: str, count: int, city: str, script: str, photo_urls: str, ho
 
         results = []
         for rank, h in enumerate(hotels):
-            # 할인 있는 호텔 우선 — 할인 0도 포함 (지역 선택 시 결과 0개 방지)
+            # % 할인 있는 호텔만 (주인님 지시: 숫자 없는 태그·할인 0는 선택 안 함)
+            if not h.get("discount") or h.get("discount") <= 1:
+                continue
             # 2) 사진 14장 수집·다운로드 (프론트 AI 선별 순서 우선)
             if photo_urls:
                 photos = [u for u in photo_urls.split("|") if u.startswith("http")][:14]
