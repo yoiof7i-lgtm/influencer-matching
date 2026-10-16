@@ -296,6 +296,7 @@ def _make_body(url: str, count: int, city: str, script: str, photo_urls: str, ho
         hotels = list_hotels(city_code, count=count)
         print(f"[make] city_code={city_code}, hotels={[(x['name'][:12], x.get('discount')) for x in hotels]}", flush=True)
         if not hotels:
+            print(f"[make] city_code={city_code}: hotels=0 (trip.com 응답 없음)", flush=True)
             return {"error": "호텔을 찾지 못했습니다"}
 
         results = []
@@ -307,6 +308,7 @@ def _make_body(url: str, count: int, city: str, script: str, photo_urls: str, ho
             else:
                 photos = hotel_photos(h["id"], limit=25)
             if len(photos) < 7:
+                print(f"[make] {h.get('name','?')[:12]}: photos={len(photos)} < 7 skip", flush=True)
                 continue
             dl = []
             for i, pu in enumerate(photos):
@@ -316,6 +318,7 @@ def _make_body(url: str, count: int, city: str, script: str, photo_urls: str, ho
                     pass
             print(f"[make] {h['name'][:12]}: photos={len(photos)} dl={len(dl)}", flush=True)
             if len(dl) < 7:
+                print(f"[make] {h.get('name','?')[:12]}: dl={len(dl)} < 7 skip", flush=True)
                 continue
             NCLIP = len(dl)
 
@@ -394,6 +397,7 @@ def _make_body(url: str, count: int, city: str, script: str, photo_urls: str, ho
                                  hook_title=hook if i == 0 else "")
                 if c: clips.append(c)
             if len(clips) < 14:
+                print(f"[make] {h.get('name','?')[:12]}: clips={len(clips)} < 14 skip", flush=True)
                 continue
 
             # 6) 합성: 크로스페이드 (동적 오프셋)
@@ -485,10 +489,11 @@ def make_all(hook: str = Query(None), count_per_city: int = Query(1, ge=1, le=2)
                 continue
             seen_code.add(c)
             uniq.append((n, c))
-        import concurrent.futures as _cf, urllib.parse as _up
+        import urllib.parse as _up
 
-        def _make_one(nc):
-            n, c = nc
+        results = []
+        errors = []
+        for n, c in uniq:
             q = _up.quote(f"https://kr.trip.com/hotels/list?city={c}&checkin=2026-10-20&checkout=2026-10-21", safe='')
             u = f"http://localhost:8000/autoshorts/make?url={q}&count={count_per_city}&region={_up.quote(n)}"
             if hook:
@@ -497,18 +502,12 @@ def make_all(hook: str = Query(None), count_per_city: int = Query(1, ge=1, le=2)
                 req = urllib.request.Request(u, headers={"User-Agent": "internal"})
                 r = urllib.request.urlopen(req, timeout=560)
                 j = json.loads(r.read().decode())
-                return n, j.get("results", []), None
-            except Exception as e:
-                return n, [], str(e)[:100]
-
-        results = []
-        errors = []
-        with _cf.ThreadPoolExecutor(max_workers=4) as ex:
-            for n, res, err in ex.map(_make_one, uniq):
-                for rr in res:
+                for rr in j.get("results", []):
                     results.append({"city": n, **rr})
-                if err:
-                    errors.append({"city": n, "error": err})
+                print(f"[all] {n}: {len(j.get('results', []))}개 생성", flush=True)
+            except Exception as e:
+                errors.append({"city": n, "error": str(e)[:100]})
+                print(f"[all] {n}: 실패 - {e}", flush=True)
         return {"total": len(results), "results": results, "errors": errors,
                 "files": [r["video"] for r in results]}
     except Exception as e:
