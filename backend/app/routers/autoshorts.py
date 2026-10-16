@@ -240,7 +240,7 @@ def _overlay_cta(video_path, out_path, region, total_dur, discount=0):
             f":fontcolor=yellow:fontsize=54"
             f":borderw=4:bordercolor=black"
             f":x=(w-tw)/2:y=h*0.22"
-            f":enable='gte(t,{last5:.2f})'"
+            f":enable='gte(t,{t0:.2f})'"
             f",drawtext=text='위치 궁금하신 분들은'{fa}"
             f":fontcolor=white:fontsize=44"
             f":borderw=3:bordercolor=black"
@@ -263,24 +263,47 @@ def _overlay_cta(video_path, out_path, region, total_dur, discount=0):
                     "-c:a", "copy", out_path], capture_output=True, timeout=300)
     return out_path if os.path.exists(out_path) else None
 
+def _make_impl(url, count, city, script, photo_urls, hook, region):
+    """make 본체 (기존 로직) — 결과 dict 반환"""
+    import shutil
+    try:
+        return _make_body(url, count, city, script, photo_urls, hook, region)
+    except HTTPException as e:
+        return {"error": e.detail}
+    except Exception as e:
+        return {"error": f"자동생성 실패: {e}"}
+
 @router.get("/make")
-def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), script: str = Query(None), photo_urls: str = Query(None), hook: str = Query(None), region: str = Query(None)):
-    """URL 하나 → 인기 1위 호텔 숏폼 MP4 (완전자동)"""
+def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), script: str = Query(None), photo_urls: str = Query(None), hook: str = Query(None), region: str = Query(None), bg: int = Query(0)):
+    if bg:
+        import threading
+        t = threading.Thread(target=_make_impl, args=(url, count, city, script, photo_urls, hook, region), daemon=True)
+        t.start()
+        return {"started": True, "poll": "/autoshorts/all-status"}
+    return _make_impl(url, count, city, script, photo_urls, hook, region)
+
+def _make_body(url: str, count: int, city: str, script: str, photo_urls: str, hook: str, region: str):
     try:
         import shutil
         shutil.rmtree(WORK, ignore_errors=True)
         os.makedirs(WORK, exist_ok=True)
 
-        # 1) 호텔 수집 (city 파라미터 있으면 URL 대체)
-        m = re.search(r'city=(\d+)', url)
+        # 1) 호텔 수집 (URL 디코드 — %3A 등 인코딩 상태로 전달됨)
+        import urllib.parse as _up
+        url_dec = _up.unquote(url)
+        m = re.search(r'city=(\d+)', url_dec)
         city_code = city or (m.group(1) if m else "623")
         hotels = list_hotels(city_code, count=count)
+        print(f"[make] city_code={city_code}, hotels={[(x['name'][:12], x.get('discount')) for x in hotels]}", flush=True)
         if not hotels:
-            raise HTTPException(404, "호텔을 찾지 못했습니다")
+            return {"error": "호텔을 찾지 못했습니다"}
 
         results = []
         for rank, h in enumerate(hotels):
-            # 2) 사진 14장 수집·다운로드 (프론트 AI 선별 순서 우선: 1전경 2객실 3욕실 4조식 5수영장 6기타 7뷰)
+            # 할인 있는 호텔만 (주인님 목적: 할인율로 팔기 — 할인 0은 건너뜀)
+            if not h.get("discount"):
+                continue
+            # 2) 사진 14장 수집·다운로드 (프론트 AI 선별 순서 우선)
             if photo_urls:
                 photos = [u for u in photo_urls.split("|") if u.startswith("http")][:14]
             else:
@@ -293,8 +316,10 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
                     dl.append(_dl(pu, f"{WORK}/h{rank}_p{i}.jpg"))
                 except Exception:
                     pass
+            print(f"[make] {h['name'][:12]}: photos={len(photos)} dl={len(dl)}", flush=True)
             if len(dl) < 7:
                 continue
+            NCLIP = len(dl)
 
             # 3) AI 대본 (사진 이해)
             b64s = []
@@ -302,32 +327,35 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
                 b64s.append(base64.b64encode(open(pth, "rb").read()).decode())
             script_raw = script if script else None
             if not script_raw:
-                try:
-                    # 서버→Gemini 사진첨부는 반복 타임아웃 실측 → 텍스트 전용만 사용
-                    hook_part = (f'훅은 이 문구를 그대로 사용: 「{hook}」. ' if hook
-                                 else '훅은 반드시 아래 4스타일 중 하나([지역]은 실제 지역명): '
-                                      '"솔직히 이 방은 ○○ 하나 때문에 또 가고 싶어요" / "[지역] 여행 갈 때 이 가격대 룸 모르면 손해인 이유" / '
-                                      '"퇴근하고 당장 누워버리고 싶은 대리만족 호캉스 룸 3초 투어" / "아직도 [지역]에서 숙소 어디 갈지 고민 중이세요?". ')
-                    script_raw = _retry(lambda: _gemini_call(
-                        f'"{h["name"]}" 호텔(평점{h["score"]}, {h["reviews"]}) 35초 숏폼 대본. '
-                        '사진 순서 고정: 침대룸×3→화장실×2→수영장/자쿠지×2→외관→전망×2→조식→로비/편의×3. 대본·자막에 호텔 이름·지점명 언급 금지(이탈 방지). '
-                        '한자·한문 표기 절대 금지(순수 한국어만). 실제 입으로 말하듯 자연스러운 구어체(~해요/~죠, 문어체·명사형 종결 금지). 나레이션 각 10~14자(2.5~3초 분량). '
-                        '룸 비트(1~3)는 룸의 확실한 특징만: 통창뷰·가성비·호캉스감 중 사진에서 보이는 것 + 방에서 자쿠지·수영장·바다(해변) 뷰가 보이면 최우선으로 언급. 사진에 없는 촉감·냄새·소리 등은 쓰지 말 것. '
-                        + hook_part +
-                        '훅+14비트(각2.5초)+CTA. 첫문장 8단어 이내·호텔명 금지·단점1개 솔직히·나레이션은 비트 시간에 맞춰 각 8~11자(2.5초=초당4자). '
-                        'JSON만: {"title":"","narrations":["14개, 각 10~14자"],"captions":["14개, 10자 이내"]}',
-                        None))
-                except Exception:
-                    # 사진 첨부 503 → 텍스트 전용 폴백
-                    try:
-                        script_raw = _gemini_call(
-                            f'"{h["name"]}" 호텔(평점{h["score"]}, {h["reviews"]}) 35초 숏폼 대본. '
-                            '훅+14비트(각2.5초)+CTA. 수영장·자쿠지·바다(해변)·루프탑·오션뷰 강조. '
-                            '첫문장 8단어 이내·제품명 금지·단점1개 솔직히. '
-                            'JSON만: {"title":"","narrations":["14개, 각 10~14자"],"captions":["14개"]}',
-                            None)
-                    except Exception:
-                        script_raw = None
+                # 서버 AI 호출 제거 (크래시 회피 + 토큰 절감) — 규칙 기반 자연 문구
+                dn = h.get("discount", 0)
+                disc_txt = f"{dn}% 할인" if dn else "특별 할인"
+                hook2 = hook or f"{region} 호캉스 이 정도까지 가능?"
+                narrations = [
+                    f"{region} 호캉스 이 정도까지 가능?",
+                    f"오늘 특별 {disc_txt} 중이에요",
+                    "침대에서 바로 보이는 뷰가 끝판왕",
+                    "욕실까지 깔끔하게 관리되어 있어요",
+                    "수영장과 자쿠지까지 다 갖췄어요",
+                    "건물도 새것이라 쾌적해요",
+                    "전망은 말 안 해도 알겠죠?",
+                    "조식까지 챙겨주니 뭐가 더 필요해요",
+                    "위치도 나쁘지 않아요",
+                    "가족 여행에 딱이에요",
+                    "커플 여행에도 최고예요",
+                    "예약 전 꼼꼼히 확인해보세요",
+                    f"{region}에서 이 가격이면 지는 거예요",
+                    "궁금하시면 저장하고 가세요",
+                ]
+                captions = [
+                    "훅", "할인", "룸 뷰", "욕실", "수영장", "건물", "전망",
+                    "조식", "위치", "가족", "커플", "체크포인트", "가성비", "저장"
+                ]
+                title = f"{region} 호캉스 {disc_txt} 숙소"
+                script_raw = None
+            else:
+                script_raw = None
+            NPH = 14
             NPH = 14
             narrations = ["최고의 호텔을 소개합니다"] * 14
             captions = [""] * 14
@@ -346,9 +374,9 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
                       "가격 대비 만족도가 높은 곳이에요", "다음 여행에서 다시 오고 싶은 곳"]
             FILL_C = ["추천 숙소", "만족스러운 선택", "디테일 좋아요", "편안한 머무름", "가성비 좋아요", "재방문 의사"]
             fi = 0
-            while len(narrations) < 14 and fi < len(FILL_N):
+            while len(narrations) < NCLIP and fi < len(FILL_N):
                 narrations.append(FILL_N[fi]); captions.append(FILL_C[fi] if fi < len(FILL_C) else ""); fi += 1
-            while len(narrations) < 14:
+            while len(narrations) < NCLIP:
                 narrations.append("여행에 딱 맞는 숙소예요"); captions.append("여행 추천")
 
             # 4) 음성 제거 (주인님 지시) — 영상 길이는 고정 14×2.5+전환 보정
@@ -362,7 +390,7 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
 
             # 5) 사진 모션 클립 (동적 길이, 자막+훅)
             clips = []
-            for i in range(14):
+            for i in range(NCLIP):
                 cap = (captions[i] if i < len(captions) else "") or (narrations[i] if i < len(narrations) else "")
                 c = _motion_clip(dl[i], f"{WORK}/h{rank}_c{i}.mp4", clip_dur, cap, idx=i,
                                  hook_title=hook if i == 0 else "")
@@ -434,7 +462,7 @@ def make(url: str, count: int = Query(1, ge=1, le=5), city: str = Query(None), s
                 tf.write(f"\n\n═══ \n[영상] {out_name} / 35초 1080x1920 / 바로 릴스 업로드 가능\n")
 
         if not results:
-            raise HTTPException(502, "숏폼 생성 실패 (사진/영상 단계 오류)")
+            raise HTTPException(502, "할인 중인 호텔이 없어 생성 못함 (나중에 다시)")
         return {"results": results, "download": f"/autoshorts/download/{results[0]['video']}"}
 
     except HTTPException:

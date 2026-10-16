@@ -41,7 +41,7 @@ def list_hotels(city: str = "623", count: int = 10, checkin="2026-10-20", checko
             "img": img.group(1) if img else "",
             "detail_url": f"https://kr.trip.com/hotels/detail/?hotelId={hid}&checkIn={checkin}&checkOut={checkout}",
         })
-        if len(hotels) >= count * 2:
+        if len(hotels) >= max(20, count * 4):
             break
     # 잘팔리는 순 기준: 리뷰수×평점 (인기 점수)
     import re as _re
