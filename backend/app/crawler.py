@@ -27,9 +27,16 @@ def list_hotels(city: str = "623", count: int = 10, checkin="2026-10-20", checko
         price = re.search(r'"price":(\d+),"currency"', w)
         score = re.search(r'"commentScore":"([\d.]+)"', w)
         rev = re.search(r'"commenterNumber":"([^"]+)"', w)
-        # 할인율 (discountTags의 "48% 할인" 등)
-        dis = re.search(r'"discountTags":\[\{"tagTitle":"(\d+)%\s*할인"', w)
-        disc = int(dis.group(1)) if dis else 0
+        # 할인율: discountTags 전체에서 "특별할인"/"첫 예약 특가" 등 % 숫자 추출 (최고값)
+        disc = 0
+        for tagm in re.finditer(r'"tagTitle":"([^"]*)"', w):
+            tag = tagm.group(1)
+            if ("할인" in tag) or ("특가" in tag):
+                pm = re.search(r'(\d+)\s*%', tag)
+                if pm:
+                    disc = max(disc, int(pm.group(1)))
+                elif disc == 0:
+                    disc = 1  # % 숫자 없는 특가 태그 (특별할인 등) — 최소 플래그
         img = re.search(r'"(https://ak-d\.tripcdn\.com/images/[^"]+?\.jpg)"',
                         payload[max(0, m.start()-2000):m.start()+3000])
         hotels.append({
@@ -43,12 +50,12 @@ def list_hotels(city: str = "623", count: int = 10, checkin="2026-10-20", checko
         })
         if len(hotels) >= max(20, count * 4):
             break
-    # 잘팔리는 순 기준: 리뷰수×평점 (인기 점수)
+    # 정렬 1순위: 할인율 높은 순 (특별할인·첫 예약 특가 포함) / 2순위: 리뷰수×평점
     import re as _re
     def pop(h):
         n = _re.sub(r"[^\d]", "", h["reviews"]) or "0"
         base = h["score"] * int(n)
-        return (h["discount"] * 1_000_000) + base  # 할인율 있으면 압도적 우선
+        return (h["discount"], base)
     hotels.sort(key=pop, reverse=True)
     return hotels[:count]
 
