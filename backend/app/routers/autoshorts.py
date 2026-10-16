@@ -348,8 +348,13 @@ def _make_body(url: str, count: int, city: str, script: str, photo_urls: str, ho
             skipped_avatar = 0
             for i, pu in enumerate(photos):
                 try:
+                    # 1i5 접두사 = 리뷰어 아바타 (주인님 실측 확정) — 하드 차단
+                    m5 = re.search(r'/images/(1i5)', pu)
+                    if m5:
+                        skipped_avatar += 1
+                        continue
                     p = _dl(pu, f"{WORK}/h{rank}_p{i}.jpg")
-                    if _is_avatar_img(p):  # 아바타/플레이스홀더 픽셀 검사 (주인님 지시)
+                    if _is_avatar_img(p):  # 아바타/플레이스홀더 픽셀 검사 (보조)
                         skipped_avatar += 1
                         os.remove(p)
                         continue

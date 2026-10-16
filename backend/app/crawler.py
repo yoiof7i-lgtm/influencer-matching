@@ -80,6 +80,9 @@ def hotel_photos(hotel_id: str, limit: int = 20):
     # 같은 사진이 크기만 다른 URL로 중복됨 (실측: 212 URL = 86 고유) → 이미지ID 기준 고유화
     unique, seen = [], set()
     for u in imgs:
+        # 1i5 접두사 = 리뷰어 아바타 (주인님 실측 확정) — 하드 차단
+        if '/images/1i5' in u:
+            continue
         # 아바타·플레이스홀더·아이콘성 이미지 제외 (주인님 지시: 실루엣 사람 아이콘 등 필터)
         if _BAD_IMG_PAT.search(u):
             continue
