@@ -52,8 +52,16 @@ def list_hotels(city: str = "623", count: int = 10, checkin="2026-10-20", checko
     hotels.sort(key=pop, reverse=True)
     return hotels[:count]
 
+# 아바타/플레이스홀더 이미지 패턴 (기본 프로필·실루엣·회원아이콘 등 호텔 사진이 아님)
+_BAD_IMG_PAT = re.compile(
+    r'avatar|profile|user|member|icon|logo|placeholder|default[_-]?(img|photo|pic)|'
+    r'blank|silhouette|noimage|no[_-]?(image|photo)|grey|gray[_-]?(bg|placeholder)|'
+    r'/static/|/assets/|favicon|\.svg|\.png"?.*(?:32x32|64x64|48x48|100x100)|'
+    r'member[_-]?(icon|avatar)|ttd\.|tripcdn\.com.*(avatar|profile)',
+    re.I)
+
 def hotel_photos(hotel_id: str, limit: int = 20):
-    """호텔 제공 사진만 (리뷰어 사진·프로필 아이콘 제외 — 주인님 지시)"""
+    """호텔 제공 사진만 (리뷰어 사진·프로필 아이콘·아바타/플레이스홀더 제외 — 주인님 지시)"""
     html = _fetch(f"https://kr.trip.com/hotels/detail/?hotelId={hotel_id}")
     payload = _payload(html)
     # 리뷰 섹션 시작 이전의 이미지만 = 호텔 제공 사진
@@ -65,6 +73,9 @@ def hotel_photos(hotel_id: str, limit: int = 20):
     # 같은 사진이 크기만 다른 URL로 중복됨 (실측: 212 URL = 86 고유) → 이미지ID 기준 고유화
     unique, seen = [], set()
     for u in imgs:
+        # 아바타·플레이스홀더·아이콘성 이미지 제외 (주인님 지시: 실루엣 사람 아이콘 등 필터)
+        if _BAD_IMG_PAT.search(u):
+            continue
         m = re.search(r'/images/([0-9a-zA-Z]+?)_', u)
         key = m.group(1) if m else u
         if key in seen:
