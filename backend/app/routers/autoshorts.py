@@ -297,6 +297,50 @@ def _overlay_cta(video_path, out_path, region, total_dur, discount=0):
                     "-c:a", "copy", out_path], capture_output=True, timeout=300)
     return out_path if os.path.exists(out_path) else None
 
+def _linkprice_deeplink(detail_url: str) -> str:
+    """trip.com 호텔 상세 URL → 링크프라이스 제휴 딥링크 변환
+    링크프라이스 파트너 딥링크: https://track.global/login?out=... 형태 대신
+    링크프라이스 스마트링크 API — LP 공식 딥링크: https://lplinks.com/... 는 수동 발급이라
+    여기선 LP 딥링크 생성기(url.naver-style) 대신 LP 가맹 딥링크 API 사용."""
+    if not detail_url:
+        return ""
+    import urllib.parse as _up
+    # 링크프라이스 파트너 ID (환경변수 LP_PARTNER_ID 필수)
+    lp_id = os.getenv("LP_PARTNER_ID", "")
+    if not lp_id:
+        return ""
+    # 링크프라이스 딥링크 형식: https://www.linkprice.com/click.php?m=trip&mbr_id=xxx&lpinfo=...&url=<encoded>
+    return (f"https://track.linkprice.com/click.php?m=trip&mbr_id={lp_id}"
+            f"&a_id=A100796356&url={_up.quote(detail_url, safe='')}")
+
+def _lp_shortlink(deeplink: str) -> str:
+    """딥링크 → 숏링크 변환. 링크프라이스 숏링크 API (is.gd 폴백)."""
+    if not deeplink:
+        return ""
+    # 1순위: 링크프라이스 자체 숏링크 API (제휴 계정 있으면)
+    try:
+        import urllib.parse as _up
+        lp_id = os.getenv("LP_PARTNER_ID", "")
+        api = ("https://api.linkprice.com/api/shorten?url=" + _up.quote(deeplink, safe='')
+               + f"&mbr_id={lp_id}")
+        req = urllib.request.Request(api, headers={"User-Agent": "Mozilla/5.0"})
+        r = urllib.request.urlopen(req, timeout=10)
+        j = json.loads(r.read().decode())
+        if j.get("short_url"):
+            return j["short_url"]
+    except Exception:
+        pass
+    # 2순위: is.gd 무료 숏링크 (딥링크 파라미터 보존)
+    try:
+        import urllib.parse as _up
+        api = ("https://is.gd/create.php?format=json&url=" + _up.quote(deeplink, safe=''))
+        req = urllib.request.Request(api, headers={"User-Agent": "Mozilla/5.0"})
+        r = urllib.request.urlopen(req, timeout=10)
+        j = json.loads(r.read().decode())
+        return j.get("shorturl", "")
+    except Exception:
+        return ""
+
 def _make_impl(url, count, city, script, photo_urls, hook, region):
     """make 본체 (기존 로직) — 결과 dict 반환"""
     import shutil
@@ -484,6 +528,10 @@ def _make_body(url: str, count: int, city: str, script: str, photo_urls: str, ho
             if final2:
                 import shutil as _sh2; _sh2.copy(final2, final)
 
+            # 링크프라이스 딥링크 → 숏링크 변환 (주인님 지시)
+            lp_deeplink = _linkprice_deeplink(h.get("detail_url", ""))
+            lp_shortlink = _lp_shortlink(lp_deeplink) if lp_deeplink else ""
+
             safe_name = re.sub(r'[^가-힣a-zA-Z0-9]', '_', title)[:20]
             out_name = f"{safe_name}_숏폼.mp4"
             results.append({
@@ -508,7 +556,16 @@ def _make_body(url: str, count: int, city: str, script: str, photo_urls: str, ho
                 tf.write("\n═══ 인스타 릴스 게시물 (아래 복붙) ═══\n\n")
                 tf.write(f"{cap_txt}\n\n")
                 tf.write(" ".join(tags))
-                tf.write(f"\n\n═══ \n[영상] {out_name} / 35초 1080x1920 / 바로 릴스 업로드 가능\n")
+                tf.write(f"\n═══ 예약 링크 ═══\n\n")
+                if lp_shortlink:
+                    tf.write(f"[숏링크] {lp_shortlink}\n")
+                if lp_deeplink:
+                    tf.write(f"[LP딥링크] {lp_deeplink}\n")
+                # 원본 상세 URL은 항상 저장 (LP 사이트에서 수동 딥링크 변환용)
+                tf.write(f"[호텔URL] https://kr.trip.com/hotels/detail/?hotelId={h['id']}\n")
+                if not lp_shortlink and not lp_deeplink:
+                    tf.write("※ 위 호텔URL을 링크프라이스 딥링크 변환기에 넣으면 제휴 링크 생성\n")
+                tf.write(f"\n═══ \n[영상] {out_name} / 35초 1080x1920 / 바로 릴스 업로드 가능\n")
 
         if not results:
             raise HTTPException(502, "할인 중인 호텔이 없어 생성 못함 (나중에 다시)")
