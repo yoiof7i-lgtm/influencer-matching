@@ -268,7 +268,10 @@ def _overlay_cta(video_path, out_path, region, total_dur, discount=0):
     )
     # 50%부터: 할인 + CTA (깜빡임: 0.6초 주기 점멸)
     if last5 > 0:
-        disc_line = f"오늘 특별 {discount}％ 할인" if discount else "오늘 특별 할인 진행 중"  # % 표기
+        if discount and discount > 1:
+            disc_line = f"오늘 특별 {discount}％ 할인"   # % 숫자 있는 실할인 (전각％ — drawtext 이슈 회피)
+        else:
+            disc_line = "오늘 특별 할인 진행 중"          # disc=1 플래그(특별할인 태그) 또는 할인 미상
         vf += (
             f",drawtext=text='{esc(disc_line)}'{fa}"
             f":fontcolor=yellow:fontsize=54"
@@ -420,7 +423,7 @@ def _make_body(url: str, count: int, city: str, script: str, photo_urls: str, ho
             if not script_raw:
                 # 서버 AI 호출 제거 (크래시 회피 + 토큰 절감) — 규칙 기반 자연 문구
                 dn = h.get("discount", 0)
-                disc_txt = f"{dn}% 할인" if dn else "특별 할인"
+                disc_txt = f"{dn}% 할인" if (dn and dn > 1) else "특별 할인"  # 1=플래그 → %표기 금지
                 hook2 = hook or f"{region} 호캉스 이 정도까지 가능?"
                 narrations = [
                     f"{region} 호캉스 이 정도까지 가능?",
