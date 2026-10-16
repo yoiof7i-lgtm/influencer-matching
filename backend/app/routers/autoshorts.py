@@ -159,7 +159,7 @@ def _motion_clip(img_path, out_path, dur=2.5, caption="", idx=0, hook_title=""):
         )
     subprocess.run(
         ["ffmpeg", "-y", "-loop", "1", "-i", img_path, "-t", str(dur),
-         "-vf", vf, "-an", "-c:v", "libx264", "-preset", "slow",
+         "-vf", vf, "-an", "-c:v", "libx264", "-preset", "fast",
          "-crf", "16", "-profile:v", "high", "-pix_fmt", "yuv420p", out_path],
         capture_output=True, timeout=180)
     return out_path if os.path.exists(out_path) else None
@@ -259,7 +259,7 @@ def _overlay_cta(video_path, out_path, region, total_dur, discount=0):
             f":enable='gte(t,{last5:.2f})'"
         )
     subprocess.run(["ffmpeg", "-y", "-i", video_path, "-vf", vf,
-                    "-c:v", "libx264", "-preset", "slow", "-crf", "16", "-profile:v", "high",
+                    "-c:v", "libx264", "-preset", "fast", "-crf", "16", "-profile:v", "high",
                     "-c:a", "copy", out_path], capture_output=True, timeout=300)
     return out_path if os.path.exists(out_path) else None
 
@@ -300,9 +300,7 @@ def _make_body(url: str, count: int, city: str, script: str, photo_urls: str, ho
 
         results = []
         for rank, h in enumerate(hotels):
-            # 할인 있는 호텔만 (주인님 목적: 할인율로 팔기 — 할인 0은 건너뜀)
-            if not h.get("discount"):
-                continue
+            # 할인 있는 호텔 우선 — 할인 0도 포함 (지역 선택 시 결과 0개 방지)
             # 2) 사진 14장 수집·다운로드 (프론트 AI 선별 순서 우선)
             if photo_urls:
                 photos = [u for u in photo_urls.split("|") if u.startswith("http")][:14]
@@ -487,22 +485,30 @@ def make_all(hook: str = Query(None), count_per_city: int = Query(1, ge=1, le=2)
                 continue
             seen_code.add(c)
             uniq.append((n, c))
-        results = []
-        errors = []
-        for name, code in uniq:
+        import concurrent.futures as _cf, urllib.parse as _up
+
+        def _make_one(nc):
+            n, c = nc
+            q = _up.quote(f"https://kr.trip.com/hotels/list?city={c}&checkin=2026-10-20&checkout=2026-10-21", safe='')
+            u = f"http://localhost:8000/autoshorts/make?url={q}&count={count_per_city}&region={_up.quote(n)}"
+            if hook:
+                u += "&hook=" + _up.quote(hook)
             try:
-                import urllib.parse as _up
-                q = _up.quote(f"https://kr.trip.com/hotels/list?city={code}&checkin=2026-10-20&checkout=2026-10-21", safe='')
-                u = f"http://localhost:8000/autoshorts/make?url={q}&count={count_per_city}&region={_up.quote(name)}"
-                if hook:
-                    u += "&hook=" + _up.quote(hook)
                 req = urllib.request.Request(u, headers={"User-Agent": "internal"})
                 r = urllib.request.urlopen(req, timeout=560)
                 j = json.loads(r.read().decode())
-                for rr in j.get("results", []):
-                    results.append({"city": name, **rr})
+                return n, j.get("results", []), None
             except Exception as e:
-                errors.append({"city": name, "error": str(e)[:100]})
+                return n, [], str(e)[:100]
+
+        results = []
+        errors = []
+        with _cf.ThreadPoolExecutor(max_workers=4) as ex:
+            for n, res, err in ex.map(_make_one, uniq):
+                for rr in res:
+                    results.append({"city": n, **rr})
+                if err:
+                    errors.append({"city": n, "error": err})
         return {"total": len(results), "results": results, "errors": errors,
                 "files": [r["video"] for r in results]}
     except Exception as e:
