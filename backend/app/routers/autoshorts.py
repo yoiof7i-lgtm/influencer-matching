@@ -298,48 +298,38 @@ def _overlay_cta(video_path, out_path, region, total_dur, discount=0):
     return out_path if os.path.exists(out_path) else None
 
 def _linkprice_deeplink(detail_url: str) -> str:
-    """trip.com 호텔 상세 URL → 링크프라이스 제휴 딥링크 변환
-    링크프라이스 파트너 딥링크: https://track.global/login?out=... 형태 대신
-    링크프라이스 스마트링크 API — LP 공식 딥링크: https://lplinks.com/... 는 수동 발급이라
-    여기선 LP 딥링크 생성기(url.naver-style) 대신 LP 가맹 딥링크 API 사용."""
+    """trip.com 호텔 상세 URL → 링크프라이스 딥링크 자동 조립
+    실측 확정 구조 (주인님 app.ac 딥링크 역추적 2026-10-17):
+    https://kr.trip.com/flights/alliance/lpinfo?a_id=A100632782&m_id=ctrip&p_id=298695006xxa12
+      &l_id=9999&l_cd1=3&l_cd2=q&rd=30&url=<호텔상세URL 인코딩>&lpfront_url=...
+    파트너 파라미터는 고정, url만 호텔별로 교체."""
     if not detail_url:
         return ""
     import urllib.parse as _up
-    # 링크프라이스 파트너 ID (환경변수 LP_PARTNER_ID 필수)
-    lp_id = os.getenv("LP_PARTNER_ID", "")
-    if not lp_id:
-        return ""
-    # 링크프라이스 딥링크 형식: https://www.linkprice.com/click.php?m=trip&mbr_id=xxx&lpinfo=...&url=<encoded>
-    return (f"https://track.linkprice.com/click.php?m=trip&mbr_id={lp_id}"
-            f"&a_id=A100796356&url={_up.quote(detail_url, safe='')}")
+    base = "https://kr.trip.com/flights/alliance/lpinfo"
+    # 호텔 상세 URL에 표준 파라미터 보강 (원본 딥링크 형식 준수)
+    if "checkIn=" not in detail_url:
+        detail_url += ("&" if "?" in detail_url else "?") + "checkIn=2026-10-20&checkOut=2026-10-21"
+    if "locale=" not in detail_url:
+        detail_url += "&curr=KRW&barcurr=KRW&isCT=true&isFlexible=F&locale=ko-KR"
+    return (f"{base}?a_id=A100632782&m_id=ctrip&p_id=298695006xxa12&l_id=9999&l_cd1=3&l_cd2=q&rd=30"
+            f"&url={_up.quote(detail_url, safe='')}"
+            f"&lpfront_url={_up.quote('https://kr.trip.com/flights/alliance/lpinfo', safe='')}")
 
 def _lp_shortlink(deeplink: str) -> str:
-    """딥링크 → 숏링크 변환. 링크프라이스 숏링크 API (is.gd 폴백)."""
+    """딥링크 → 숏링크. is.gd는 434자 긴 URL 거부(database insert failed) → TinyURL 사용 (실측)."""
     if not deeplink:
         return ""
-    # 1순위: 링크프라이스 자체 숏링크 API (제휴 계정 있으면)
     try:
         import urllib.parse as _up
-        lp_id = os.getenv("LP_PARTNER_ID", "")
-        api = ("https://api.linkprice.com/api/shorten?url=" + _up.quote(deeplink, safe='')
-               + f"&mbr_id={lp_id}")
+        api = "https://tinyurl.com/api-create.php?url=" + _up.quote(deeplink, safe='')
         req = urllib.request.Request(api, headers={"User-Agent": "Mozilla/5.0"})
-        r = urllib.request.urlopen(req, timeout=10)
-        j = json.loads(r.read().decode())
-        if j.get("short_url"):
-            return j["short_url"]
+        short = urllib.request.urlopen(req, timeout=15).read().decode().strip()
+        if short.startswith("http"):
+            return short
     except Exception:
         pass
-    # 2순위: is.gd 무료 숏링크 (딥링크 파라미터 보존)
-    try:
-        import urllib.parse as _up
-        api = ("https://is.gd/create.php?format=json&url=" + _up.quote(deeplink, safe=''))
-        req = urllib.request.Request(api, headers={"User-Agent": "Mozilla/5.0"})
-        r = urllib.request.urlopen(req, timeout=10)
-        j = json.loads(r.read().decode())
-        return j.get("shorturl", "")
-    except Exception:
-        return ""
+    return ""
 
 def _make_impl(url, count, city, script, photo_urls, hook, region):
     """make 본체 (기존 로직) — 결과 dict 반환"""
@@ -556,7 +546,7 @@ def _make_body(url: str, count: int, city: str, script: str, photo_urls: str, ho
                 tf.write("\n═══ 인스타 릴스 게시물 (아래 복붙) ═══\n\n")
                 tf.write(f"{cap_txt}\n\n")
                 tf.write(" ".join(tags))
-                tf.write(f"\n═══ 예약 링크 ═══\n\n")
+                tf.write(f"\n═══ 예약 링크 (링크프라이스 제휴 — 댓글/프로필용) ═══\n\n")
                 if lp_shortlink:
                     tf.write(f"[숏링크] {lp_shortlink}\n")
                 if lp_deeplink:
