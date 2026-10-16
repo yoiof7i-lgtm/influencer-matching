@@ -320,7 +320,7 @@ def _make_body(url: str, count: int, city: str, script: str, photo_urls: str, ho
             if len(dl) < 7:
                 print(f"[make] {h.get('name','?')[:12]}: dl={len(dl)} < 7 skip", flush=True)
                 continue
-            NCLIP = len(dl)
+            NCLIP = len(clips)
 
             # 3) AI 대본 (사진 이해)
             b64s = []
@@ -356,7 +356,6 @@ def _make_body(url: str, count: int, city: str, script: str, photo_urls: str, ho
                 script_raw = None
             else:
                 script_raw = None
-            NPH = 14
             NPH = 14
             narrations = ["최고의 호텔을 소개합니다"] * 14
             captions = [""] * 14
@@ -396,8 +395,8 @@ def _make_body(url: str, count: int, city: str, script: str, photo_urls: str, ho
                 c = _motion_clip(dl[i], f"{WORK}/h{rank}_c{i}.mp4", clip_dur, cap, idx=i,
                                  hook_title=hook if i == 0 else "")
                 if c: clips.append(c)
-            if len(clips) < 14:
-                print(f"[make] {h.get('name','?')[:12]}: clips={len(clips)} < 14 skip", flush=True)
+            if len(clips) < 7:
+                print(f"[make] {h.get('name','?')[:12]}: clips={len(clips)} < 7 skip", flush=True)
                 continue
 
             # 6) 합성: 크로스페이드 (동적 오프셋)
