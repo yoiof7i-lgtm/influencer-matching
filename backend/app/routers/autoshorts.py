@@ -314,9 +314,23 @@ def _linkprice_deeplink(detail_url: str) -> str:
             f"&l_cd1=3&l_cd2=q&tu={_up.quote(detail_url, safe='')}")
 
 def _lp_shortlink(deeplink: str) -> str:
-    """딥링크 → 숏링크. is.gd는 434자 긴 URL 거부(database insert failed) → TinyURL 사용 (실측)."""
+    """딥링크 → 숏링크. 실측: TinyURL·is.gd는 linkprice 도메인을 스팸필터로 거부(400/db error).
+    spoo.me는 허용 + 리다이렉트 검증 완료 (click.php → lpinfo 정상 도달)."""
     if not deeplink:
         return ""
+    try:
+        import urllib.parse as _up
+        data = _up.urlencode({"url": deeplink}).encode()
+        req = urllib.request.Request("https://spoo.me/", data=data,
+                                     headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json"})
+        r = urllib.request.urlopen(req, timeout=15)
+        j = json.loads(r.read().decode())
+        short = j.get("short_url", "")
+        if short.startswith("http"):
+            return short
+    except Exception:
+        pass
+    # 폴백: TinyURL (linkprice 아닌 URL용)
     try:
         import urllib.parse as _up
         api = "https://tinyurl.com/api-create.php?url=" + _up.quote(deeplink, safe='')
