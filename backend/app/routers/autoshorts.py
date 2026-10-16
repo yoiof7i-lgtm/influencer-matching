@@ -320,7 +320,7 @@ def _make_body(url: str, count: int, city: str, script: str, photo_urls: str, ho
             if len(dl) < 7:
                 print(f"[make] {h.get('name','?')[:12]}: dl={len(dl)} < 7 skip", flush=True)
                 continue
-            NCLIP = len(clips)
+            NCLIP = len(dl)
 
             # 3) AI 대본 (사진 이해)
             b64s = []
@@ -353,12 +353,14 @@ def _make_body(url: str, count: int, city: str, script: str, photo_urls: str, ho
                     "조식", "위치", "가족", "커플", "체크포인트", "가성비", "저장"
                 ]
                 title = f"{region} 호캉스 {disc_txt} 숙소"
+                narrations = narrations[:NCLIP]
+                captions = captions[:NCLIP]
                 script_raw = None
             else:
                 script_raw = None
-            NPH = 14
-            narrations = ["최고의 호텔을 소개합니다"] * 14
-            captions = [""] * 14
+            NPH = NCLIP
+            narrations = ["최고의 호텔을 소개합니다"] * NCLIP
+            captions = [""] * NCLIP
             title = h["name"]
             if script_raw:
                 try:
@@ -395,6 +397,7 @@ def _make_body(url: str, count: int, city: str, script: str, photo_urls: str, ho
                 c = _motion_clip(dl[i], f"{WORK}/h{rank}_c{i}.mp4", clip_dur, cap, idx=i,
                                  hook_title=hook if i == 0 else "")
                 if c: clips.append(c)
+            print(f"[make] {h.get('name','?')[:12]}: clips 생성={len(clips)}/{NCLIP}", flush=True)
             if len(clips) < 7:
                 print(f"[make] {h.get('name','?')[:12]}: clips={len(clips)} < 7 skip", flush=True)
                 continue
