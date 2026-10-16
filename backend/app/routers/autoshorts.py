@@ -298,23 +298,20 @@ def _overlay_cta(video_path, out_path, region, total_dur, discount=0):
     return out_path if os.path.exists(out_path) else None
 
 def _linkprice_deeplink(detail_url: str) -> str:
-    """trip.com 호텔 상세 URL → 링크프라이스 딥링크 자동 조립
-    실측 확정 구조 (주인님 app.ac 딥링크 역추적 2026-10-17):
-    https://kr.trip.com/flights/alliance/lpinfo?a_id=A100632782&m_id=ctrip&p_id=298695006xxa12
-      &l_id=9999&l_cd1=3&l_cd2=q&rd=30&url=<호텔상세URL 인코딩>&lpfront_url=...
-    파트너 파라미터는 고정, url만 호텔별로 교체."""
+    """trip.com 호텔 상세 URL → 링크프라이스 제휴 딥링크 (정식 click.php 방식)
+    실측 확정 (2026-10-17): click.linkprice.com/click.php에 tu=호텔URL만 넣으면
+    LP 서버가 p_id를 동적으로 자동 발급해 lpinfo로 리다이렉트시킨다.
+    파트너 계정(a=A100632782) 고정 — 수익 귀속 확정."""
     if not detail_url:
         return ""
     import urllib.parse as _up
-    base = "https://kr.trip.com/flights/alliance/lpinfo"
-    # 호텔 상세 URL에 표준 파라미터 보강 (원본 딥링크 형식 준수)
+    # 호텔 상세 URL 표준화 (체크인/통화/locale 기본값 보강)
     if "checkIn=" not in detail_url:
         detail_url += ("&" if "?" in detail_url else "?") + "checkIn=2026-10-20&checkOut=2026-10-21"
     if "locale=" not in detail_url:
-        detail_url += "&curr=KRW&barcurr=KRW&isCT=true&isFlexible=F&locale=ko-KR"
-    return (f"{base}?a_id=A100632782&m_id=ctrip&p_id=298695006xxa12&l_id=9999&l_cd1=3&l_cd2=q&rd=30"
-            f"&url={_up.quote(detail_url, safe='')}"
-            f"&lpfront_url={_up.quote('https://kr.trip.com/flights/alliance/lpinfo', safe='')}")
+        detail_url += "&curr=KRW&barcurr=KRW&locale=ko-KR"
+    return (f"https://click.linkprice.com/click.php?m=ctrip&a=A100632782&l=9999"
+            f"&l_cd1=3&l_cd2=q&tu={_up.quote(detail_url, safe='')}")
 
 def _lp_shortlink(deeplink: str) -> str:
     """딥링크 → 숏링크. is.gd는 434자 긴 URL 거부(database insert failed) → TinyURL 사용 (실측)."""
