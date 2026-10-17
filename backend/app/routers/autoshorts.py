@@ -414,12 +414,18 @@ def _make_body(url: str, count: int, city: str, script: str, photo_urls: str, ho
             print(f"[make] city_code={city_code}: hotels=0 (trip.com 응답 없음)", flush=True)
             return {"error": "호텔을 찾지 못했습니다"}
 
+        # 할인 있는 호텔만
+        discount_hotels = [h for h in hotels if h.get("discount", 0) > 1]
+        # 4주 쿨다운 통과 호텔이 있으면 그것만, 전부 쿨다운 중이면 가장 오래된 것부터 재사용 (지역 0개 방지)
+        cooled = [h for h in discount_hotels if _cooldown_ok(h["id"])]
+        use_list = cooled if cooled else sorted(discount_hotels, key=lambda x: _load_history().get(str(x["id"]), ""))[:1]
+        if cooled:
+            print(f"[make] 쿨다운 통과: {len(cooled)}개", flush=True)
+        else:
+            print(f"[make] 전 호텔 쿨다운 중 → 가장 오래된 1개 재사용", flush=True)
+
         results = []
-        for rank, h in enumerate(hotels):
-            # 같은 호텔 4주(28일) 금지 (주인님 지시) — 이력 있으면 스킵
-            if not _cooldown_ok(h["id"]):
-                print(f"[make] {h.get('name','?')[:12]}: 4주쿨다운 스킵 (이전 사용)", flush=True)
-                continue
+        for rank, h in enumerate(use_list):
             # % 할인 있는 호텔만 (주인님 지시: 숫자 없는 태그·할인 0는 선택 안 함)
             if not h.get("discount") or h.get("discount") <= 1:
                 continue
