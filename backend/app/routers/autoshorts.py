@@ -8,6 +8,39 @@ router = APIRouter(prefix="/autoshorts", tags=["autoshorts"])
 
 WORK = "/tmp/autoshorts"
 OUTDIR = "/code/uploads/shorts"  # 주인님 윈도우 폴더: C:\Users\jaq\influencer-matching\backend\uploads\shorts
+HIST = "/code/uploads/shorts_history.json"  # 호텔 사용 이력 (같은 호텔 4주 금지 — 주인님 지시)
+
+def _load_history():
+    try:
+        return json.load(open(HIST, encoding="utf-8"))
+    except Exception:
+        return {}
+
+def _save_history(hist):
+    try:
+        os.makedirs(OUTDIR, exist_ok=True)
+        json.dump(hist, open(HIST, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    except Exception:
+        pass
+
+def _cooldown_ok(hotel_id: str, days: int = 28) -> bool:
+    """같은 호텔 4주(28일) 금지 — 이내 사용 이력이 있으면 False"""
+    hist = _load_history()
+    used = hist.get(str(hotel_id))
+    if not used:
+        return True
+    try:
+        from datetime import datetime
+        elapsed = (datetime.now() - datetime.fromisoformat(used)).days
+        return elapsed >= days
+    except Exception:
+        return True
+
+def _record_use(hotel_id: str):
+    hist = _load_history()
+    from datetime import datetime
+    hist[str(hotel_id)] = datetime.now().isoformat(timespec="seconds")
+    _save_history(hist)
 
 def _dl(url, path):
     req = urllib.request.Request(url, headers={"User-Agent": UA})
@@ -383,6 +416,10 @@ def _make_body(url: str, count: int, city: str, script: str, photo_urls: str, ho
 
         results = []
         for rank, h in enumerate(hotels):
+            # 같은 호텔 4주(28일) 금지 (주인님 지시) — 이력 있으면 스킵
+            if not _cooldown_ok(h["id"]):
+                print(f"[make] {h.get('name','?')[:12]}: 4주쿨다운 스킵 (이전 사용)", flush=True)
+                continue
             # % 할인 있는 호텔만 (주인님 지시: 숫자 없는 태그·할인 0는 선택 안 함)
             if not h.get("discount") or h.get("discount") <= 1:
                 continue
@@ -540,6 +577,7 @@ def _make_body(url: str, count: int, city: str, script: str, photo_urls: str, ho
 
             safe_name = re.sub(r'[^가-힣a-zA-Z0-9]', '_', title)[:20]
             out_name = f"{safe_name}_숏폼.mp4"
+            _record_use(h["id"])  # 4주 쿨다운 기록
             results.append({
                 "rank": rank+1, "hotel": h["name"], "title": title,
                 "score": h["score"], "reviews": h["reviews"], "discount": h.get("discount", 0),
